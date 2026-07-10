@@ -1,5 +1,5 @@
 import { context, reddit, redis } from '@devvit/web/server';
-import type { InstallSettings, OrdersApiResponse } from '../../shared/types.js';
+import type { InstallSettings, OrdersApiPayload } from '../../shared/types.js';
 import { SHOWCASE_POST_KEY } from '../../shared/types.js';
 import { readCache } from '../services/cache.js';
 
@@ -16,7 +16,7 @@ function personalAttribution(installSettings: InstallSettings): string {
 export function buildOrdersResponse(
   cache: Awaited<ReturnType<typeof readCache>>,
   installSettings: InstallSettings,
-): OrdersApiResponse {
+): OrdersApiPayload {
   return {
     lastUpdated: cache?.lastUpdated ?? null,
     settings: installSettings,

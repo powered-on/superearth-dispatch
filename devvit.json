@@ -48,6 +48,18 @@
         "label": "Personal: use third-party API",
         "defaultValue": false,
         "helpText": "When enabled, Personal Orders load from api.diveharder.com. When disabled, uses official Arrowhead API when available."
+      },
+      "showForceRefreshButton": {
+        "type": "boolean",
+        "label": "Force refresh button",
+        "defaultValue": true,
+        "helpText": "Show a Force refresh button on the Live Orders post for moderators."
+      },
+      "showReaddSidebarWidgetButton": {
+        "type": "boolean",
+        "label": "Re-add sidebar widget",
+        "defaultValue": true,
+        "helpText": "Show a Re-add sidebar widget button on the Live Orders post for moderators."
       }
     }
   },
@@ -78,6 +90,36 @@
         "postFilter": "currentApp",
         "forUserType": "moderator",
         "endpoint": "/internal/menu/refresh-orders"
+      },
+      {
+        "label": "Force refresh",
+        "description": "Fetch latest orders and update the sidebar widget immediately.",
+        "location": "subreddit",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/force-refresh-orders"
+      },
+      {
+        "label": "Force refresh",
+        "description": "Fetch latest orders and update the sidebar widget immediately.",
+        "location": "post",
+        "postFilter": "currentApp",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/force-refresh-orders"
+      },
+      {
+        "label": "Re-add sidebar widget",
+        "description": "Delete and recreate the SuperEarth Dispatch sidebar widget.",
+        "location": "subreddit",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/readd-sidebar-widget"
+      },
+      {
+        "label": "Re-add sidebar widget",
+        "description": "Delete and recreate the SuperEarth Dispatch sidebar widget.",
+        "location": "post",
+        "postFilter": "currentApp",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/readd-sidebar-widget"
       }
     ]
   },

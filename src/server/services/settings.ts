@@ -7,5 +7,7 @@ export async function readInstallSettings(): Promise<InstallSettings> {
     showMajorOrder: values.showMajorOrder ?? true,
     showPersonalObjectives: values.showPersonalObjectives ?? true,
     personalUseThirdPartyApi: values.personalUseThirdPartyApi ?? false,
+    showForceRefreshButton: values.showForceRefreshButton ?? true,
+    showReaddSidebarWidgetButton: values.showReaddSidebarWidgetButton ?? true,
   };
 }

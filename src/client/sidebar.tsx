@@ -10,33 +10,30 @@ function App() {
   const [payload, setPayload] = useState<OrdersApiResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      try {
-        const response = await fetch('/api/orders');
-        if (!response.ok) {
-          throw new Error(`Request failed (${response.status})`);
-        }
-
-        const data = (await response.json()) as OrdersApiResponse;
-        if (!cancelled) {
-          setPayload(data);
-          setError(null);
-        }
-      } catch (loadError) {
-        if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : 'Failed to load orders');
-        }
-      }
+  async function loadOrders(): Promise<void> {
+    const response = await fetch('/api/orders');
+    if (!response.ok) {
+      throw new Error(`Request failed (${response.status})`);
     }
 
-    void load();
-    return () => {
-      cancelled = true;
-    };
+    const data = (await response.json()) as OrdersApiResponse;
+    setPayload(data);
+    setError(null);
+  }
+
+  useEffect(() => {
+    void loadOrders().catch((loadError) => {
+      setError(loadError instanceof Error ? loadError.message : 'Failed to load orders');
+    });
   }, []);
+
+  const handleReload = async () => {
+    try {
+      await loadOrders();
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'Failed to load orders');
+    }
+  };
 
   if (error) {
     return (
@@ -54,7 +51,7 @@ function App() {
     );
   }
 
-  return <OrderWidget payload={payload} />;
+  return <OrderWidget payload={payload} onReload={handleReload} />;
 }
 
 createRoot(document.getElementById('root')!).render(

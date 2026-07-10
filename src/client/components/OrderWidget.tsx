@@ -3,6 +3,7 @@ import type { NormalizedOrder, OrdersApiResponse, SectionCache } from '../../sha
 import { isUsableOrderData, sectionErrorMessage } from '../../shared/sectionState.js';
 import { CountdownTimer } from './CountdownTimer.js';
 import { GoalItem } from './GoalItem.js';
+import { ModToolbar } from './ModToolbar.js';
 
 function formatTimestamp(value: string | null): string | null {
   if (!value) {
@@ -215,7 +216,13 @@ export function WidgetHeader() {
   );
 }
 
-export function OrderWidget({ payload }: { payload: OrdersApiResponse }) {
+export function OrderWidget({
+  payload,
+  onReload,
+}: {
+  payload: OrdersApiResponse;
+  onReload: () => Promise<void>;
+}) {
   const hasMajor =
     payload.settings.showMajorOrder &&
     payload.major &&
@@ -230,6 +237,11 @@ export function OrderWidget({ payload }: { payload: OrdersApiResponse }) {
     return (
       <div className="hd2-post" role="status">
         <WidgetHeader />
+        <ModToolbar
+          settings={payload.settings}
+          isModerator={payload.viewer.isModerator}
+          onReload={onReload}
+        />
         <section className="panel">
           <p className="status-message">No active order data yet</p>
         </section>
@@ -241,6 +253,11 @@ export function OrderWidget({ payload }: { payload: OrdersApiResponse }) {
   return (
     <div className="hd2-post">
       <WidgetHeader />
+      <ModToolbar
+        settings={payload.settings}
+        isModerator={payload.viewer.isModerator}
+        onReload={onReload}
+      />
       <div
         className={
           activeSectionCount < 2 ? 'hd2-post__body hd2-post__body--single' : 'hd2-post__body'

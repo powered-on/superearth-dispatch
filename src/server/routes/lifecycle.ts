@@ -2,21 +2,10 @@ import { Hono } from 'hono';
 import type { TriggerResponse } from '@devvit/web/shared';
 import { createSidebarPost } from '../core/install.js';
 import { readCache } from '../services/cache.js';
-import { refreshOrders } from '../services/orderFetcher.js';
-import { readInstallSettings } from '../services/settings.js';
-import { syncSidebarWidget } from '../services/sidebarWidget.js';
+import { runRefreshPipeline } from '../services/refreshPipeline.js';
+import { readdSidebarWidget } from '../services/sidebarWidget.js';
 
 export const schedulerRoutes = new Hono();
-
-async function runRefreshPipeline(): Promise<void> {
-  const installSettings = await readInstallSettings();
-  await refreshOrders(installSettings);
-
-  const cache = await readCache();
-  if (cache) {
-    await syncSidebarWidget(cache);
-  }
-}
 
 schedulerRoutes.post('/refresh-orders', async (c) => {
   try {
@@ -64,5 +53,30 @@ menu.post('/refresh-orders', async (c) => {
   } catch (error) {
     console.error('manual refresh failed', error);
     return c.json({ showToast: 'Refresh failed — check app logs.' }, 500);
+  }
+});
+
+menu.post('/force-refresh-orders', async (c) => {
+  try {
+    await runRefreshPipeline();
+    return c.json({ showToast: 'Force refresh complete.' });
+  } catch (error) {
+    console.error('force refresh failed', error);
+    return c.json({ showToast: 'Force refresh failed — check app logs.' }, 500);
+  }
+});
+
+menu.post('/readd-sidebar-widget', async (c) => {
+  try {
+    const cache = await readCache();
+    if (!cache) {
+      return c.json({ showToast: 'No cached orders yet — run refresh first.' }, 400);
+    }
+
+    await readdSidebarWidget(cache);
+    return c.json({ showToast: 'Sidebar widget re-added.' });
+  } catch (error) {
+    console.error('re-add sidebar widget failed', error);
+    return c.json({ showToast: 'Re-add sidebar widget failed — check app logs.' }, 500);
   }
 });

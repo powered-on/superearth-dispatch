@@ -24,6 +24,8 @@ export type InstallSettings = {
   showMajorOrder: boolean;
   showPersonalObjectives: boolean;
   personalUseThirdPartyApi: boolean;
+  showForceRefreshButton: boolean;
+  showReaddSidebarWidgetButton: boolean;
 };
 
 export type CachedOrders = {
@@ -33,6 +35,8 @@ export type CachedOrders = {
   personal: SectionCache | null;
 };
 
+export type OrdersApiPayload = Omit<OrdersApiResponse, 'viewer'>;
+
 export type OrdersApiResponse = {
   lastUpdated: string | null;
   settings: InstallSettings;
@@ -41,6 +45,9 @@ export type OrdersApiResponse = {
   attribution: {
     major: string;
     personal: string;
+  };
+  viewer: {
+    isModerator: boolean;
   };
 };
 

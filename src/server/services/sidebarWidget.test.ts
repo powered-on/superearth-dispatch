@@ -10,6 +10,8 @@ const baseCache: CachedOrders = {
     showMajorOrder: true,
     showPersonalObjectives: true,
     personalUseThirdPartyApi: true,
+    showForceRefreshButton: true,
+    showReaddSidebarWidgetButton: true,
   },
   major: {
     status: 'ok',

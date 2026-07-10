@@ -17,6 +17,12 @@ A fan-made Reddit sidebar app for **Helldivers 2** subreddits. Visitors can see 
 
 ## Changelog
 
+### 0.0.13 — 2026-07-10
+
+- Install settings: **Force refresh button** and **Re-add sidebar widget** toggles
+- Moderator toolbar on Live Orders post when settings are enabled
+- Matching overflow-menu actions for force refresh and sidebar widget re-add
+
 ### 0.0.12 — 2026-07-10
 
 - Post webview layout fills the feed pane (two-column Major/Personal on wide viewports)

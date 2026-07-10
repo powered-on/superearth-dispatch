@@ -229,6 +229,29 @@ async function syncCustomWidget(subredditName: string, text: string): Promise<vo
   await redis.set(WIDGET_KIND_KEY, WIDGET_KIND_CUSTOM);
 }
 
+export async function readdSidebarWidget(cache: CachedOrders): Promise<void> {
+  const subredditName = context.subredditName;
+  if (!subredditName) {
+    throw new Error('Subreddit context is required to re-add the sidebar widget');
+  }
+
+  const widgets = await reddit.getWidgets(subredditName);
+  const matching = widgets.filter(
+    (widget) => widget.name.toLowerCase() === WIDGET_SHORT_NAME.toLowerCase(),
+  );
+
+  for (const widget of matching) {
+    console.info('[widget] re-add: removing existing widget', widget.id);
+    await deleteWidgetQuietly(subredditName, widget.id);
+  }
+
+  await redis.del(WIDGET_ID_KEY);
+  await redis.del(WIDGET_KIND_KEY);
+
+  const text = renderSidebarWidgetText(cache);
+  await syncCustomWidget(subredditName, text);
+}
+
 export async function syncSidebarWidget(cache: CachedOrders): Promise<void> {
   const subredditName = context.subredditName;
   if (!subredditName) {
