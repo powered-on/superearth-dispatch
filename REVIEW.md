@@ -2,8 +2,11 @@
 
 ## Domain declarations (`devvit.json`)
 
-- `api.live.prod.thehelldiversgame.com` — Major Order telemetry (official Arrowhead)
-- `api.diveharder.com` — optional third-party daily objectives when mod enables toggle
+**Reviewer doc (GitHub Pages):** https://powered-on.github.io/superearth-dispatch/domain-exceptions.html
+
+- `api.helldivers2.dev` — Major Order via community API `/raw/` passthrough (Arrowhead assignment data)
+- Reddit S3 upload hosts — custom widget image bootstrap (already approved)
+- `api.diveharder.com` — deferred; optional third-party personal orders when separately approved
 
 ## Permissions justification
 

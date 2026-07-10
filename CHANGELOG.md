@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.37 — 2026-07-10
+
+### Changed
+
+- Major Order fetch via community API `api.helldivers2.dev` (`/raw/` passthrough) instead of direct Arrowhead host
+- HTTP domain allowlist: `api.helldivers2.dev` only for order data; retained approved Reddit S3 upload domains for custom widget work
+
 ## 0.0.6 — 2026-07-10
 
 ### Changed

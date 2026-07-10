@@ -29,7 +29,7 @@ When enabled by subreddit moderators, the App’s server periodically fetches **
 
 | Purpose | Host |
 |---------|------|
-| Major Order | `api.live.prod.thehelldiversgame.com` (Arrowhead official API) |
+| Major Order | `api.helldivers2.dev` (community API; Arrowhead assignment data via `/raw/`) |
 | Daily objectives (optional) | `api.diveharder.com` (third-party, if enabled in install settings) |
 
 These requests are made by the App server on a schedule (approximately every 45 minutes). **No per-visitor identity or Reddit user data is sent to these APIs** as part of normal operation.

@@ -42,11 +42,12 @@
       <tr><th>Purpose</th><th>Host</th></tr>
     </thead>
     <tbody>
-      <tr><td>Major Order</td><td>api.live.prod.thehelldiversgame.com (Arrowhead official API)</td></tr>
+      <tr><td>Major Order</td><td>api.helldivers2.dev (community API; Arrowhead data via /raw/)</td></tr>
       <tr><td>Daily objectives (optional)</td><td>api.diveharder.com (third-party, if enabled)</td></tr>
     </tbody>
   </table>
   <p>These requests are made by the App server on a schedule (approximately every 45 minutes). <strong>No per-visitor identity or Reddit user data is sent to these APIs</strong> as part of normal operation.</p>
+  <p>See <a href="domain-exceptions.html">HTTP domain exceptions (app review)</a> for full justification of each allow-listed hostname.</p>
 
   <h2>Data stored by the App</h2>
   <p>The App caches normalized order text (titles, objectives, expiry metadata) in Devvit Redis scoped to each subreddit installation. Cached content is derived from public upstream APIs, not from individual Reddit users.</p>

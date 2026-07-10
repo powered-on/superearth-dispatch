@@ -15,7 +15,65 @@ A fan-made Reddit sidebar app for **Helldivers 2** subreddits. Visitors can see 
 - **Goal breakdown** — major order tasks show kill quotas and planet hold targets with faction-colored progress
 - **Clear status** — standby, stale, and unavailable states with source attribution
 
+## Why this app needs HTTP domain exceptions
+
+Reddit Devvit blocks outbound HTTP unless each **exact hostname** is declared in `devvit.json` and approved for the app. SuperEarth Dispatch cannot show live Major Order text without that permission — the assignment data lives on external game APIs, not on Reddit.
+
+This app is **read-only**. It does not log players into Helldivers 2, perform in-game actions, or collect visitor credentials. Moderators install it on a subreddit; visitors see cached order text in the sidebar widget or post webview.
+
+### How network access is used
+
+| Concern | What we do |
+|--------|------------|
+| **Who calls external APIs** | Devvit **server** code only (scheduled cron + moderator “refresh” actions). Never the visitor’s browser. |
+| **What the webview calls** | This app’s own `/api/orders` endpoint, which reads Redis cache. No third-party URLs in client-side code. |
+| **What we send upstream** | Anonymous `GET` requests. Identification headers (`X-Super-Client`, `X-Super-Contact`) so the community API maintainer can reach us about abuse or breaking changes — no Reddit user data, no game accounts. |
+| **What we store** | Normalized order text and progress numbers in per-subreddit Redis between refreshes. |
+| **Refresh rate** | Default every 45 minutes per installation; only sections enabled in mod settings are fetched. |
+
+### Domains declared in `devvit.json`
+
+#### `api.helldivers2.dev` — **required for Major Order**
+
+**Why:** The sidebar’s primary feature is the current Major Order (title, briefing, task goals, expiry). That text must be fetched from a Helldivers 2 war API and cached server-side.
+
+**Why not Arrowhead directly:** We previously requested `api.live.prod.thehelldiversgame.com` and it was rejected. The [helldivers-2/api](https://github.com/helldivers-2/api) community project provides a `/raw/` passthrough of the same public assignment payloads and asks third-party apps to use it instead of hammering Arrowhead production servers. We use only their documented raw endpoints:
+
+- `GET /raw/api/WarSeason/current/WarID`
+- `GET /raw/api/v2/Assignment/War/{season}`
+
+**Implementation:** `src/server/services/ahgsClient.ts`
+
+**Data flow:** Public assignment JSON → mapped to display text → Redis → sidebar widget / post webview.
+
+#### Reddit S3 upload hosts — **custom sidebar widget images**
+
+**Why:** Reddit `custom` sidebar widgets require an `imageData` URL even when the widget is text/CSS-driven. The app uploads a minimal placeholder image via Reddit’s widget image API; responses are served from Reddit-owned S3 buckets.
+
+**Hosts (already approved):**
+
+- `reddit-uploaded-media.s3.amazonaws.com`
+- `reddit-uploaded-media.s3-accelerate.amazonaws.com`
+- `reddit-subreddit-uploaded-media.s3.amazonaws.com`
+- `reddit-subreddit-uploaded-media.s3-accelerate.amazonaws.com`
+
+**When used:** Custom-widget bootstrap and sync — not for order data.
+
+#### Not currently requested
+
+- **`api.diveharder.com`** — optional third-party Personal Orders source; install toggle defaults **off**. Will be requested in a separate review if mods need it.
+- **`random.org` / `www.random.org`** — listed for compatibility; globally allow-listed by Devvit and unused in the current build.
+
+### Privacy and terms
+
+External fetching is described in [docs/PRIVACY.md](docs/PRIVACY.md) and [docs/TERMS.md](docs/TERMS.md). **Reviewer-facing domain justification:** [powered-on.github.io/superearth-dispatch/domain-exceptions.html](https://powered-on.github.io/superearth-dispatch/domain-exceptions.html). App review notes: [REVIEW.md](REVIEW.md).
+
 ## Changelog
+
+### 0.0.37 — 2026-07-10
+
+- Major Order fetch via `api.helldivers2.dev` community API (`/raw/` passthrough) instead of direct Arrowhead host
+- HTTP allowlist narrowed to `api.helldivers2.dev` plus already-approved Reddit S3 upload domains
 
 ### 0.0.36 — 2026-07-10
 

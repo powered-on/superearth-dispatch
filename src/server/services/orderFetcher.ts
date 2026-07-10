@@ -57,14 +57,14 @@ function sectionFromFailure(
 
 export async function fetchMajorFromAhgs(previous: SectionCache | null): Promise<SectionCache> {
   try {
-    console.info('[orders] upstream AHGS WarID');
+    console.info('[orders] upstream api.helldivers2.dev WarID');
     const warId = await fetchCurrentWarId();
-    console.info(`[orders] upstream AHGS Assignment/War/${warId}`);
+    console.info(`[orders] upstream api.helldivers2.dev Assignment/War/${warId}`);
     const assignments = await fetchWarAssignments(warId);
     const section = majorSectionFromAssignments(assignments);
 
     if (!section) {
-      throw new Error('Failed to build major section from AHGS payload');
+      throw new Error('Failed to build major section from HD2 API payload');
     }
 
     if (section.status === 'standby') {
@@ -137,7 +137,7 @@ export async function refreshOrders(settings: InstallSettings): Promise<void> {
   if (settings.showMajorOrder) {
     patch.major = await fetchMajorFromAhgs(existing?.major ?? null);
   } else {
-    console.info('[orders] major section disabled — no AHGS calls');
+    console.info('[orders] major section disabled — no major-order upstream calls');
     patch.major = null;
   }
 

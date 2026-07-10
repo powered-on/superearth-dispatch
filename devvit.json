@@ -23,11 +23,9 @@
     "http": {
       "enable": true,
       "domains": [
-        "thehelldiversgame.com",
-        "diveharder.com",
+        "api.helldivers2.dev",
         "random.org",
         "www.random.org",
-        "amazonaws.com",
         "reddit-uploaded-media.s3-accelerate.amazonaws.com",
         "reddit-uploaded-media.s3.amazonaws.com",
         "reddit-subreddit-uploaded-media.s3-accelerate.amazonaws.com",

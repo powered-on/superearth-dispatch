@@ -60,10 +60,13 @@ export const WIDGET_KIND_TEXTAREA = 'textarea';
 export const WIDGET_LAST_SYNC_KEY = 'widget:lastSyncAt';
 export const SHOWCASE_POST_KEY = 'showcase:postId';
 
-export const AHGS_BASE = 'https://api.live.prod.thehelldiversgame.com/api';
+/** Community API raw passthrough (https://github.com/helldivers-2/api). */
+export const HD2_COMMUNITY_API_BASE = 'https://api.helldivers2.dev/raw/api';
+export const HD2_API_CLIENT = 'superearth-dispatch';
+export const HD2_API_CONTACT = 'github.com/powered-on/superearth-dispatch';
 export const DIVEHARDER_PERSONAL_URL =
   'https://api.diveharder.com/v1/personal_order';
 
-/** Shown when AHGS returns no active Major Order (empty assignment list). */
+/** Shown when upstream returns no active Major Order (empty assignment list). */
 export const MAJOR_ORDER_STANDBY_MESSAGE =
   'Please stand by for new orders from Super Earth High Command.';

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HTTP Domain Exceptions — SuperEarth Dispatch</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 46rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+    h1, h2 { line-height: 1.2; }
+    table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+    th, td { border: 1px solid #ccc; padding: 0.5rem; text-align: left; vertical-align: top; }
+    th { background: #f6f6f6; }
+    code { font-size: 0.92em; }
+    a { color: #0a5; }
+    .note { background: #f8f8f8; border-left: 3px solid #888; padding: 0.75rem 1rem; margin: 1rem 0; }
+  </style>
+</head>
+<body>
+  <h1>HTTP Domain Exceptions — SuperEarth Dispatch</h1>
+  <p><strong>App:</strong> <a href="https://developers.reddit.com/apps/superearth-dispatch">superearth-dispatch</a> · <strong>Last updated:</strong> July 10, 2026</p>
+
+  <p>SuperEarth Dispatch is a read-only fan-made Reddit Devvit app that shows public Helldivers 2 <strong>Major Order</strong> text in a subreddit sidebar. It does not require game login, does not perform in-game actions, and does not send Reddit user data to external APIs.</p>
+
+  <p><strong>Not affiliated with Arrowhead Game Studios, Sony Interactive Entertainment, or Reddit, Inc.</strong></p>
+
+  <h2>Why external HTTP is required</h2>
+  <p>Devvit blocks outbound HTTP unless each exact hostname is declared in <code>devvit.json</code> and approved for the app. Major Order text is not available on Reddit — the server must periodically fetch public assignment data from an external API and cache normalized text in per-subreddit Redis for the sidebar widget and post webview.</p>
+
+  <h2>How fetching works</h2>
+  <table>
+    <thead>
+      <tr><th>Concern</th><th>Behavior</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Who calls external APIs</td><td>Devvit <strong>server</strong> code only (45-minute cron + moderator refresh). Never the visitor browser.</td></tr>
+      <tr><td>What the webview calls</td><td>This app’s <code>/api/orders</code> endpoint (Redis cache). No third-party URLs in client-side code.</td></tr>
+      <tr><td>Credentials / PII sent upstream</td><td>None. Anonymous <code>GET</code> only. Community API identification headers (<code>X-Super-Client</code>, <code>X-Super-Contact</code>) for maintainer contact — no Reddit user IDs.</td></tr>
+      <tr><td>Data stored</td><td>Normalized order titles, objectives, goals, and expiry metadata in Devvit Redis per installation.</td></tr>
+      <tr><td>Refresh rate</td><td>Default every 45 minutes; only sections enabled in mod install settings are fetched.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Domains declared in <code>devvit.json</code></h2>
+
+  <h3><code>api.helldivers2.dev</code> — required for Major Order</h3>
+  <p><strong>Purpose:</strong> Fetch current Major Order assignment text (title, briefing, task goals, expiry).</p>
+  <p><strong>Why this host:</strong> Direct requests to <code>api.live.prod.thehelldiversgame.com</code> were previously rejected. The <a href="https://github.com/helldivers-2/api">helldivers-2/api</a> community project provides a documented <code>/raw/</code> passthrough of the same public Arrowhead assignment payloads and asks third-party apps to use it instead of hitting Arrowhead production servers directly.</p>
+  <p><strong>Endpoints used:</strong></p>
+  <ul>
+    <li><code>GET /raw/api/WarSeason/current/WarID</code></li>
+    <li><code>GET /raw/api/v2/Assignment/War/{season}</code></li>
+  </ul>
+  <p><strong>Source:</strong> <a href="https://github.com/powered-on/superearth-dispatch/blob/main/src/server/services/ahgsClient.ts"><code>src/server/services/ahgsClient.ts</code></a></p>
+
+  <h3>Reddit S3 upload hosts — custom sidebar widget images</h3>
+  <p><strong>Purpose:</strong> Reddit <code>custom</code> sidebar widgets require an <code>imageData</code> URL. The app uploads a minimal placeholder image via Reddit’s widget image API; responses are served from Reddit-owned S3 buckets. Not used for order data.</p>
+  <ul>
+    <li><code>reddit-uploaded-media.s3.amazonaws.com</code></li>
+    <li><code>reddit-uploaded-media.s3-accelerate.amazonaws.com</code></li>
+    <li><code>reddit-subreddit-uploaded-media.s3.amazonaws.com</code></li>
+    <li><code>reddit-subreddit-uploaded-media.s3-accelerate.amazonaws.com</code></li>
+  </ul>
+  <p><strong>Status:</strong> Already approved for this app.</p>
+
+  <div class="note">
+    <p><strong>Not currently requested:</strong> <code>api.diveharder.com</code> (optional third-party Personal Orders; install toggle defaults off). <code>random.org</code> is globally allow-listed and unused in the current build.</p>
+  </div>
+
+  <h2>Related documents</h2>
+  <ul>
+    <li><a href="privacy.html">Privacy Policy</a></li>
+    <li><a href="terms.html">Terms and Conditions</a></li>
+    <li><a href="https://github.com/powered-on/superearth-dispatch#why-this-app-needs-http-domain-exceptions">README (domain section)</a></li>
+    <li><a href="https://github.com/powered-on/superearth-dispatch/blob/main/REVIEW.md">App review notes (REVIEW.md)</a></li>
+  </ul>
+
+  <p><a href="index.html">Back to SuperEarth Dispatch</a></p>
+</body>
+</html>
