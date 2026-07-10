@@ -77,6 +77,7 @@ menu.post('/readd-sidebar-widget', async (c) => {
     return c.json({ showToast: 'Sidebar widget re-added.' });
   } catch (error) {
     console.error('re-add sidebar widget failed', error);
-    return c.json({ showToast: 'Re-add sidebar widget failed — check app logs.' }, 500);
+    const message = error instanceof Error ? error.message : 'Re-add sidebar widget failed';
+    return c.json({ showToast: message }, 500);
   }
 });

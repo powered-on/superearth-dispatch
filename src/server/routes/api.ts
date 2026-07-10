@@ -52,7 +52,8 @@ api.post('/mod/force-refresh', async (c) => {
     return c.json(await buildOrdersPayload());
   } catch (error) {
     console.error('POST /api/mod/force-refresh failed', error);
-    return c.json<ErrorResponse>({ status: 'error', message: 'Force refresh failed' }, 500);
+    const message = error instanceof Error ? error.message : 'Force refresh failed';
+    return c.json<ErrorResponse>({ status: 'error', message }, 500);
   }
 });
 
@@ -78,6 +79,7 @@ api.post('/mod/readd-sidebar-widget', async (c) => {
     });
   } catch (error) {
     console.error('POST /api/mod/readd-sidebar-widget failed', error);
-    return c.json<ErrorResponse>({ status: 'error', message: 'Re-add sidebar widget failed' }, 500);
+    const message = error instanceof Error ? error.message : 'Re-add sidebar widget failed';
+    return c.json<ErrorResponse>({ status: 'error', message }, 500);
   }
 });

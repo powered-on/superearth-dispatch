@@ -17,6 +17,10 @@ A fan-made Reddit sidebar app for **Helldivers 2** subreddits. Visitors can see 
 
 ## Changelog
 
+### 0.0.14 — 2026-07-10
+
+- Fix re-add sidebar widget: verified deletes, subreddit context fallback, markdown fallback, clearer errors
+
 ### 0.0.13 — 2026-07-10
 
 - Install settings: **Force refresh button** and **Re-add sidebar widget** toggles

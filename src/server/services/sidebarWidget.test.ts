@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { CachedOrders } from '../../shared/types.js';
 import { MAJOR_ORDER_STANDBY_MESSAGE } from '../../shared/types.js';
 import { computeWidgetHeight } from './sidebarWidgetCss.js';
-import { isCustomSidebarWidget, renderSidebarWidgetText } from './sidebarWidget.js';
+import { isCustomSidebarWidget, renderSidebarWidgetMarkdownPlain, renderSidebarWidgetText } from './sidebarWidget.js';
 
 const baseCache: CachedOrders = {
   lastUpdated: '2026-07-10T16:15:00.000Z',
@@ -65,6 +65,17 @@ describe('renderSidebarWidgetText', () => {
 
     expect(text).toContain('sed-standby');
     expect(text).toContain(MAJOR_ORDER_STANDBY_MESSAGE);
+  });
+});
+
+describe('renderSidebarWidgetMarkdownPlain', () => {
+  it('renders markdown goals without HTML wrappers', () => {
+    const text = renderSidebarWidgetMarkdownPlain(baseCache);
+
+    expect(text).toContain('### Major Order');
+    expect(text).toContain('- Kill 600,000,000 Terminids (25%)');
+    expect(text).toContain('TERREK ✓');
+    expect(text).not.toContain('<li class="sed-goal');
   });
 });
 

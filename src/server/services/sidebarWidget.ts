@@ -24,6 +24,23 @@ function escapeHtml(value: string): string {
     .replaceAll('"', '&quot;');
 }
 
+function formatWidgetError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
+}
+
+async function resolveSubredditName(): Promise<string> {
+  if (context.subredditName) {
+    return context.subredditName;
+  }
+
+  const subreddit = await reddit.getCurrentSubreddit();
+  return subreddit.name;
+}
+
 function formatCountdownRemaining(expiresAt?: string): string {
   if (!expiresAt) {
     return '';
@@ -86,6 +103,87 @@ function formatOrderHtml(order: NormalizedOrder): string {
   }
 
   return lines.join('\n\n');
+}
+
+function formatOrderMarkdown(order: NormalizedOrder): string {
+  const countdown = formatCountdownRemaining(order.expiresAt);
+  const countdownSuffix = countdown ? ` *(${countdown})*` : '';
+  const lines = [`**${order.title}**${countdownSuffix}`, order.objective];
+
+  if (order.goals?.length) {
+    lines.push(
+      order.goals
+        .map((goal) => {
+          if (goal.progress?.kind === 'bar') {
+            const percent = goalProgressPercent(goal.progress);
+            return `- ${goal.text} (${percent}%)`;
+          }
+
+          if (goal.progress?.kind === 'box') {
+            return `- ${goalDisplayLabel(goal)} ${goal.progress.complete ? '✓' : '○'}`;
+          }
+
+          return `- ${goal.text}`;
+        })
+        .join('\n'),
+    );
+  }
+
+  return lines.join('\n\n');
+}
+
+function renderSectionBlockMarkdown(
+  heading: string,
+  section: SectionCache | null,
+): string[] {
+  if (!section) {
+    return [];
+  }
+
+  const staleNote =
+    section.status === 'stale'
+      ? `\n\n*Stale — last fetched ${new Date(section.fetchedAt).toLocaleString()}*`
+      : '';
+
+  if (section.status === 'standby') {
+    const message = sectionErrorMessage(section) ?? 'Stand by for new orders.';
+    return [`### ${heading}`, `*${message}*`];
+  }
+
+  if (
+    (section.status === 'ok' || section.status === 'stale') &&
+    isUsableOrderData(section.data)
+  ) {
+    if (Array.isArray(section.data)) {
+      const lines = section.data.map((order) => formatOrderMarkdown(order));
+      return [`### ${heading}`, `${lines.join('\n\n')}${staleNote}`];
+    }
+
+    return [`### ${heading}`, `${formatOrderMarkdown(section.data)}${staleNote}`];
+  }
+
+  const message = sectionErrorMessage(section) ?? 'Unavailable';
+  return [`### ${heading}`, `*${message}*`];
+}
+
+export function renderSidebarWidgetMarkdownPlain(cache: CachedOrders): string {
+  const blocks: string[] = [];
+
+  if (cache.settings.showMajorOrder) {
+    blocks.push(...renderSectionBlockMarkdown('Major Order', cache.major));
+  }
+
+  if (cache.settings.showPersonalObjectives) {
+    blocks.push(...renderSectionBlockMarkdown('Personal Orders', cache.personal));
+  }
+
+  const footer = cache.lastUpdated
+    ? `\n\n---\n*Updated ${new Date(cache.lastUpdated).toLocaleString()}*`
+    : '';
+
+  const attribution = `\n*Major: Arrowhead · Personal: ${cache.settings.personalUseThirdPartyApi ? 'Diveharder' : 'Arrowhead (when available)'}*`;
+
+  return `${blocks.join('\n\n')}${footer}${attribution}`;
 }
 
 function renderSectionBlock(
@@ -180,6 +278,63 @@ function buildCustomWidgetPayload(subredditName: string, text: string): CustomWi
   };
 }
 
+async function deleteWidgetOrThrow(subredditName: string, widgetId: string): Promise<void> {
+  try {
+    await reddit.deleteWidget(subredditName, widgetId);
+  } catch (error) {
+    throw new Error(`Failed to delete widget ${widgetId}: ${formatWidgetError(error)}`);
+  }
+}
+
+async function removeAllNamedWidgets(subredditName: string): Promise<void> {
+  const findMatching = async () => {
+    const widgets = await reddit.getWidgets(subredditName);
+    return widgets.filter(
+      (widget) => widget.name.toLowerCase() === WIDGET_SHORT_NAME.toLowerCase(),
+    );
+  };
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const matching = await findMatching();
+    if (matching.length === 0) {
+      return;
+    }
+
+    for (const widget of matching) {
+      console.info('[widget] removing widget', widget.id);
+      await deleteWidgetOrThrow(subredditName, widget.id);
+    }
+  }
+
+  const remaining = await findMatching();
+  if (remaining.length > 0) {
+    throw new Error(
+      `Could not remove existing "${WIDGET_SHORT_NAME}" widget(s): ${remaining.map((widget) => widget.id).join(', ')}`,
+    );
+  }
+}
+
+async function createCustomSidebarWidget(subredditName: string, cache: CachedOrders): Promise<string> {
+  const styledText = renderSidebarWidgetText(cache);
+
+  try {
+    const created = await reddit.addWidget(buildCustomWidgetPayload(subredditName, styledText));
+    return created.id;
+  } catch (styledError) {
+    console.warn('[widget] styled custom widget create failed, retrying markdown-only', styledError);
+  }
+
+  const plainText = renderSidebarWidgetMarkdownPlain(cache);
+  try {
+    const created = await reddit.addWidget(buildCustomWidgetPayload(subredditName, plainText));
+    return created.id;
+  } catch (plainError) {
+    throw new Error(
+      `Failed to create custom sidebar widget: ${formatWidgetError(plainError)}`,
+    );
+  }
+}
+
 async function deleteWidgetQuietly(subredditName: string, widgetId: string): Promise<void> {
   try {
     await reddit.deleteWidget(subredditName, widgetId);
@@ -230,33 +385,18 @@ async function syncCustomWidget(subredditName: string, text: string): Promise<vo
 }
 
 export async function readdSidebarWidget(cache: CachedOrders): Promise<void> {
-  const subredditName = context.subredditName;
-  if (!subredditName) {
-    throw new Error('Subreddit context is required to re-add the sidebar widget');
-  }
+  const subredditName = await resolveSubredditName();
 
-  const widgets = await reddit.getWidgets(subredditName);
-  const matching = widgets.filter(
-    (widget) => widget.name.toLowerCase() === WIDGET_SHORT_NAME.toLowerCase(),
-  );
+  await removeAllNamedWidgets(subredditName);
+  await redis.del(WIDGET_ID_KEY, WIDGET_KIND_KEY);
 
-  for (const widget of matching) {
-    console.info('[widget] re-add: removing existing widget', widget.id);
-    await deleteWidgetQuietly(subredditName, widget.id);
-  }
-
-  await redis.del(WIDGET_ID_KEY);
-  await redis.del(WIDGET_KIND_KEY);
-
-  const text = renderSidebarWidgetText(cache);
-  await syncCustomWidget(subredditName, text);
+  const widgetId = await createCustomSidebarWidget(subredditName, cache);
+  await redis.set(WIDGET_ID_KEY, widgetId);
+  await redis.set(WIDGET_KIND_KEY, WIDGET_KIND_CUSTOM);
 }
 
 export async function syncSidebarWidget(cache: CachedOrders): Promise<void> {
-  const subredditName = context.subredditName;
-  if (!subredditName) {
-    return;
-  }
+  const subredditName = await resolveSubredditName();
 
   const text = renderSidebarWidgetText(cache);
 
