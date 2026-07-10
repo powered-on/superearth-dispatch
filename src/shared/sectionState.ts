@@ -1,4 +1,5 @@
 import type { NormalizedOrder, SectionCache } from './types.js';
+import { MAJOR_ORDER_STANDBY_MESSAGE } from './types.js';
 
 export function isUsableOrderData(
   data: NormalizedOrder | NormalizedOrder[],
@@ -23,6 +24,10 @@ export function isUsablePrevious(section: SectionCache | null): boolean {
 }
 
 export function sectionErrorMessage(section: SectionCache): string | null {
+  if (section.status === 'standby') {
+    return MAJOR_ORDER_STANDBY_MESSAGE;
+  }
+
   if (section.errorMessage) {
     return section.errorMessage;
   }

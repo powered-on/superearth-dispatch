@@ -24,6 +24,23 @@ describe('orderMapper', () => {
 
     expect(mapped?.title).toBe('MAJOR ORDER: HOLD THE LINE');
     expect(mapped?.objective).toContain('Kill the mandated number of Terminids');
+    expect(mapped?.goals).toEqual([
+      {
+        text: 'Kill 600,000,000 Terminids',
+        tone: 'terminid',
+        progress: { kind: 'bar', current: 149385022, goal: 600000000 },
+      },
+      {
+        text: 'Hold TERREK',
+        tone: 'brand',
+        progress: { kind: 'box', complete: true },
+      },
+      {
+        text: 'Hold ERATA PRIME',
+        tone: 'brand',
+        progress: { kind: 'box', complete: true },
+      },
+    ]);
     expect(mapped?.expiresAt).toBeTruthy();
   });
 
@@ -32,6 +49,10 @@ describe('orderMapper', () => {
     const mapped = mapAssignmentList(personal);
 
     expect(mapped).toHaveLength(1);
-    expect(mapped[0]?.objective).toBe('Patrol 2 different planets in under 45 minutes.');
+    expect(mapped[0]?.objective).toBe('Complete patrols on designated worlds.');
+    expect(mapped[0]?.goals).toEqual([
+      { text: 'Patrol 2 different planets in under 45 minutes.', tone: 'brand' },
+    ]);
+    expect(mapped[0]?.expiresAt).toBeTruthy();
   });
 });

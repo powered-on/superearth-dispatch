@@ -40,14 +40,14 @@
       },
       "showPersonalObjectives": {
         "type": "boolean",
-        "label": "Show daily objectives",
+        "label": "Show Personal Orders",
         "defaultValue": true
       },
       "personalUseThirdPartyApi": {
         "type": "boolean",
         "label": "Personal: use third-party API",
         "defaultValue": false,
-        "helpText": "When enabled, daily objectives load from api.diveharder.com. When disabled, uses official Arrowhead API when available."
+        "helpText": "When enabled, Personal Orders load from api.diveharder.com. When disabled, uses official Arrowhead API when available."
       }
     }
   },
@@ -66,7 +66,7 @@
     "items": [
       {
         "label": "Refresh orders now",
-        "description": "Fetch latest Major Order and daily objectives into the sidebar cache.",
+        "description": "Fetch latest Major Order and Personal Orders into the sidebar cache.",
         "location": "subreddit",
         "forUserType": "moderator",
         "endpoint": "/internal/menu/refresh-orders"

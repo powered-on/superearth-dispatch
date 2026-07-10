@@ -5,7 +5,8 @@ import type {
 } from '../../shared/types.js';
 import { fetchCurrentWarId, fetchWarAssignments } from './ahgsClient.js';
 import { fetchPersonalOrders } from './diveharderClient.js';
-import { mapAssignment, mapAssignmentList, pickMajorAssignment } from './orderMapper.js';
+import { majorSectionFromAssignments } from './majorSection.js';
+import { mapAssignmentList } from './orderMapper.js';
 import { isUsablePrevious } from '../../shared/sectionState.js';
 import { mergeCache, readCache } from './cache.js';
 
@@ -60,15 +61,22 @@ export async function fetchMajorFromAhgs(previous: SectionCache | null): Promise
     const warId = await fetchCurrentWarId();
     console.info(`[orders] upstream AHGS Assignment/War/${warId}`);
     const assignments = await fetchWarAssignments(warId);
-    const majorAssignment = pickMajorAssignment(assignments);
-    const mapped = majorAssignment ? mapAssignment(majorAssignment) : null;
+    const section = majorSectionFromAssignments(assignments);
 
-    if (!mapped) {
-      throw new Error('No major assignment in AHGS payload');
+    if (!section) {
+      throw new Error('Failed to build major section from AHGS payload');
     }
 
-    console.info(`[orders] major mapped: ${mapped.title}`);
-    return sectionFromSuccess('arrowhead', mapped);
+    if (section.status === 'standby') {
+      console.info('[orders] major order standby — no active assignment');
+      return section;
+    }
+
+    if (!Array.isArray(section.data)) {
+      console.info(`[orders] major mapped: ${section.data.title}`);
+    }
+
+    return section;
   } catch (error) {
     const message = errorMessage(error);
     console.error('[orders] major fetch failed', message);

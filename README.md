@@ -1,20 +1,29 @@
 # SuperEarth Dispatch
 
-A fan-made Reddit sidebar app for **Helldivers 2** subreddits. Visitors can see the current **Major Order** and **daily objectives** without logging into the game.
+A fan-made Reddit sidebar app for **Helldivers 2** subreddits. Visitors can see the current **Major Order** and **Personal Orders** without logging into the game.
 
 **Not affiliated with Arrowhead Game Studios or Sony Interactive Entertainment.**
 
 ## Features
 
 - **Major Order** — current war assignment text in the subreddit sidebar
-- **Daily objectives** — optional second section for personal order text
+- **Personal Orders** — optional second section for personal order text (renamed from Daily Objectives)
 - **Moderator controls** — install settings to show or hide each section independently
-- **Optional third-party daily data** — mods can enable an alternate daily-objectives source when available
+- **Optional third-party personal data** — mods can enable an alternate personal-orders source when available
 - **Automatic updates** — order text refreshes on a schedule after install; no visitor action required
-- **Read-only** — no game login, no progress tracking, no gameplay actions
-- **Clear status** — shows when data is unavailable or temporarily stale, with source attribution
+- **Read-only** — no game login and no gameplay actions
+- **Goal breakdown** — major order tasks show kill quotas and planet hold targets with faction-colored progress
+- **Clear status** — standby, stale, and unavailable states with source attribution
 
 ## Changelog
+
+### 0.0.9 — 2026-07-10
+
+- Renamed user-facing **Daily Objectives** to **Personal Orders**
+- Live countdown timers on Major Order and Personal Orders
+- Major order goal breakdown from API tasks (kill quotas, planet hold/liberate targets)
+- Faction-colored goals and progress bars; solid boxes for planet hold completion
+- Major order **standby** state when AHGS returns no active assignment
 
 ### 0.0.7 — 2026-07-10
 

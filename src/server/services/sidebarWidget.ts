@@ -3,24 +3,54 @@ import type { CachedOrders, NormalizedOrder, SectionCache } from '../../shared/t
 import { WIDGET_ID_KEY, WIDGET_SHORT_NAME } from '../../shared/types.js';
 import { isUsableOrderData, sectionErrorMessage } from '../../shared/sectionState.js';
 
-function formatExpiry(expiresAt?: string): string {
+function formatCountdownRemaining(expiresAt?: string): string {
   if (!expiresAt) {
     return '';
   }
 
-  const date = new Date(expiresAt);
-  if (Number.isNaN(date.getTime())) {
+  const expiryMs = new Date(expiresAt).getTime();
+  if (Number.isNaN(expiryMs)) {
     return '';
   }
 
-  return ` (expires ${date.toLocaleString('en-US', { timeZone: 'UTC' })} UTC)`;
+  const remainingSeconds = Math.max(0, Math.floor((expiryMs - Date.now()) / 1000));
+  const days = Math.floor(remainingSeconds / 86_400);
+  const hours = Math.floor((remainingSeconds % 86_400) / 3_600);
+  const minutes = Math.floor((remainingSeconds % 3_600) / 60);
+
+  if (days > 0) {
+    return ` (${days}d ${hours}h left)`;
+  }
+
+  if (hours > 0) {
+    return ` (${hours}h ${minutes}m left)`;
+  }
+
+  return ` (${minutes}m left)`;
 }
 
 function formatOrder(order: NormalizedOrder): string {
-  const lines = [`**${order.title}**`, order.objective];
-  const expiry = formatExpiry(order.expiresAt);
-  if (expiry) {
-    lines.push(expiry.trim());
+  const lines = [`**${order.title}**${formatCountdownRemaining(order.expiresAt)}`, order.objective];
+  if (order.goals?.length) {
+    lines.push(
+      order.goals
+        .map((goal) => {
+          if (goal.progress?.kind === 'bar') {
+            const percent = Math.min(
+              100,
+              Math.round((goal.progress.current / goal.progress.goal) * 100),
+            );
+            return `- ${goal.text} (${percent}%)`;
+          }
+
+          if (goal.progress?.kind === 'box') {
+            return `- ${goal.text} ${goal.progress.complete ? '✓' : '○'}`;
+          }
+
+          return `- ${goal.text}`;
+        })
+        .join('\n'),
+    );
   }
   return lines.join('\n\n');
 }
@@ -37,6 +67,11 @@ function renderSectionBlock(
     section.status === 'stale'
       ? `\n\n*Stale — last fetched ${new Date(section.fetchedAt).toLocaleString()}*`
       : '';
+
+  if (section.status === 'standby') {
+    const message = sectionErrorMessage(section) ?? 'Stand by for new orders.';
+    return [`### ${heading}`, `*${message}*`];
+  }
 
   if (
     (section.status === 'ok' || section.status === 'stale') &&
@@ -62,7 +97,7 @@ export function renderSidebarMarkdown(cache: CachedOrders): string {
   }
 
   if (cache.settings.showPersonalObjectives) {
-    blocks.push(...renderSectionBlock('Daily Objectives', cache.personal));
+    blocks.push(...renderSectionBlock('Personal Orders', cache.personal));
   }
 
   const footer = cache.lastUpdated

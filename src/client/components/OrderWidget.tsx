@@ -1,5 +1,7 @@
 import type { NormalizedOrder, OrdersApiResponse, SectionCache } from '../../shared/types.js';
 import { isUsableOrderData, sectionErrorMessage } from '../../shared/sectionState.js';
+import { CountdownTimer } from './CountdownTimer.js';
+import { GoalItem } from './GoalItem.js';
 
 function formatTimestamp(value: string | null): string | null {
   if (!value) {
@@ -14,17 +16,59 @@ function formatTimestamp(value: string | null): string | null {
   return date.toLocaleString();
 }
 
-function formatExpiry(expiresAt?: string): string | null {
-  if (!expiresAt) {
-    return null;
-  }
+function SectionHeading({
+  id,
+  title,
+  expiresAt,
+}: {
+  id: string;
+  title: string;
+  expiresAt?: string | undefined;
+}) {
+  return (
+    <div className="section-heading">
+      <h3 id={id}>{title}</h3>
+      {expiresAt ? <CountdownTimer expiresAt={expiresAt} /> : null}
+    </div>
+  );
+}
 
-  const date = new Date(expiresAt);
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
+function OrderBlock({
+  order,
+  labelledBy,
+  showTitleCountdown = false,
+}: {
+  order: NormalizedOrder;
+  labelledBy?: string;
+  showTitleCountdown?: boolean;
+}) {
+  return (
+    <article className="order-block" aria-labelledby={labelledBy}>
+      {showTitleCountdown && order.expiresAt ? (
+        <div className="order-heading">
+          <p className="title">{order.title}</p>
+          <CountdownTimer expiresAt={order.expiresAt} />
+        </div>
+      ) : (
+        <p className="title">{order.title}</p>
+      )}
+      <p className="objective">{order.objective}</p>
+      {order.goals && order.goals.length > 0 ? (
+        <ul className="order-goals">
+          {order.goals.map((goal) => (
+            <GoalItem key={goal.text} goal={goal} />
+          ))}
+        </ul>
+      ) : null}
+    </article>
+  );
+}
 
-  return `Expires ${date.toLocaleString()}`;
+function sectionHasDisplayData(section: SectionCache): boolean {
+  return (
+    (section.status === 'ok' || section.status === 'stale') &&
+    isUsableOrderData(section.data)
+  );
 }
 
 function SectionStatusMessage({ section }: { section: SectionCache }) {
@@ -38,29 +82,14 @@ function SectionStatusMessage({ section }: { section: SectionCache }) {
 
   const message = sectionErrorMessage(section);
   if (message) {
-    return <p className="status-message">{message}</p>;
+    return (
+      <p className={section.status === 'standby' ? 'status-message standby' : 'status-message'}>
+        {message}
+      </p>
+    );
   }
 
   return null;
-}
-
-function OrderBlock({ order, labelledBy }: { order: NormalizedOrder; labelledBy?: string }) {
-  const expiry = formatExpiry(order.expiresAt);
-
-  return (
-    <article className="section" aria-labelledby={labelledBy}>
-      <p className="title">{order.title}</p>
-      <p className="objective">{order.objective}</p>
-      {expiry ? <p className="meta">{expiry}</p> : null}
-    </article>
-  );
-}
-
-function sectionHasDisplayData(section: SectionCache): boolean {
-  return (
-    (section.status === 'ok' || section.status === 'stale') &&
-    isUsableOrderData(section.data)
-  );
 }
 
 export function MajorOrderSection({ section }: { section: SectionCache | null }) {
@@ -71,7 +100,7 @@ export function MajorOrderSection({ section }: { section: SectionCache | null })
   if (!sectionHasDisplayData(section)) {
     return (
       <section className="section" aria-labelledby="major-order-heading">
-        <h3 id="major-order-heading">Major Order</h3>
+        <SectionHeading id="major-order-heading" title="Major Order" />
         <SectionStatusMessage section={section} />
       </section>
     );
@@ -83,22 +112,26 @@ export function MajorOrderSection({ section }: { section: SectionCache | null })
 
   return (
     <section className="section" aria-labelledby="major-order-heading">
-      <h3 id="major-order-heading">Major Order</h3>
+      <SectionHeading
+        id="major-order-heading"
+        title="Major Order"
+        {...(section.data.expiresAt ? { expiresAt: section.data.expiresAt } : {})}
+      />
       <OrderBlock order={section.data} labelledBy="major-order-heading" />
       {section.status === 'stale' ? <SectionStatusMessage section={section} /> : null}
     </section>
   );
 }
 
-export function PersonalObjectivesSection({ section }: { section: SectionCache | null }) {
+export function PersonalOrdersSection({ section }: { section: SectionCache | null }) {
   if (!section) {
     return null;
   }
 
   if (!sectionHasDisplayData(section)) {
     return (
-      <section className="section" aria-labelledby="personal-objectives-heading">
-        <h3 id="personal-objectives-heading">Daily Objectives</h3>
+      <section className="section" aria-labelledby="personal-orders-heading">
+        <SectionHeading id="personal-orders-heading" title="Personal Orders" />
         <SectionStatusMessage section={section} />
       </section>
     );
@@ -108,11 +141,23 @@ export function PersonalObjectivesSection({ section }: { section: SectionCache |
     return null;
   }
 
+  const orders = section.data;
+  const singleOrder = orders.length === 1 ? orders[0] : undefined;
+
   return (
-    <section className="section" aria-labelledby="personal-objectives-heading">
-      <h3 id="personal-objectives-heading">Daily Objectives</h3>
-      {section.data.map((order: NormalizedOrder, index: number) => (
-        <OrderBlock key={`${order.title}-${index}`} order={order} labelledBy="personal-objectives-heading" />
+    <section className="section" aria-labelledby="personal-orders-heading">
+      <SectionHeading
+        id="personal-orders-heading"
+        title="Personal Orders"
+        {...(singleOrder?.expiresAt ? { expiresAt: singleOrder.expiresAt } : {})}
+      />
+      {orders.map((order: NormalizedOrder, index: number) => (
+        <OrderBlock
+          key={`${order.title}-${index}`}
+          order={order}
+          labelledBy="personal-orders-heading"
+          showTitleCountdown={orders.length > 1}
+        />
       ))}
       {section.status === 'stale' ? <SectionStatusMessage section={section} /> : null}
     </section>
@@ -126,7 +171,7 @@ export function Footer({ payload }: { payload: OrdersApiResponse }) {
     <footer className="footer">
       {updated ? <p>Last updated: {updated}</p> : <p>No active order data yet</p>}
       <p>
-        Sources — Major: {payload.attribution.major}; Daily: {payload.attribution.personal}
+        Sources — Major: {payload.attribution.major}; Personal: {payload.attribution.personal}
       </p>
     </footer>
   );
@@ -154,7 +199,7 @@ export function OrderWidget({ payload }: { payload: OrdersApiResponse }) {
   return (
     <div className="widget">
       <MajorOrderSection section={payload.major} />
-      <PersonalObjectivesSection section={payload.personal} />
+      <PersonalOrdersSection section={payload.personal} />
       <Footer payload={payload} />
     </div>
   );

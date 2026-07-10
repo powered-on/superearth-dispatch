@@ -1,10 +1,14 @@
 export type OrderSource = 'arrowhead' | 'diveharder';
 
-export type SectionStatus = 'ok' | 'unavailable' | 'stale' | 'config_error';
+export type SectionStatus = 'ok' | 'standby' | 'unavailable' | 'stale' | 'config_error';
+
+export type { OrderGoal, OrderGoalTone } from './orderGoals.js';
+import type { OrderGoal } from './orderGoals.js';
 
 export type NormalizedOrder = {
   title: string;
   objective: string;
+  goals?: OrderGoal[];
   expiresAt?: string;
 };
 
@@ -48,3 +52,7 @@ export const SHOWCASE_POST_KEY = 'showcase:postId';
 export const AHGS_BASE = 'https://api.live.prod.thehelldiversgame.com/api';
 export const DIVEHARDER_PERSONAL_URL =
   'https://api.diveharder.com/v1/personal_order';
+
+/** Shown when AHGS returns no active Major Order (empty assignment list). */
+export const MAJOR_ORDER_STANDBY_MESSAGE =
+  'Please stand by for new orders from Super Earth High Command.';
