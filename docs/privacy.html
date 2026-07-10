@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy Policy — SuperEarth Dispatch</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 42rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+    h1, h2 { line-height: 1.2; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 0.5rem; text-align: left; }
+    a { color: #0a5; }
+  </style>
+</head>
+<body>
+  <h1>Privacy Policy — SuperEarth Dispatch</h1>
+  <p><strong>Last updated:</strong> July 10, 2026</p>
+
+  <p>SuperEarth Dispatch (“the App”) is a fan-made <a href="https://developers.reddit.com/">Reddit Devvit</a> application that displays public Helldivers 2 war information in a subreddit sidebar. This policy describes what data the App handles.</p>
+
+  <p><strong>Not affiliated with Arrowhead Game Studios, Sony Interactive Entertainment, or Reddit, Inc.</strong></p>
+
+  <h2>Summary</h2>
+  <p>The App is read-only for visitors. It does not require Helldivers 2 login, does not collect game credentials, and does not ask sidebar viewers to submit personal information.</p>
+
+  <h2>Information we do not collect from visitors</h2>
+  <p>The App does not intentionally collect, store, or sell:</p>
+  <ul>
+    <li>Real names, email addresses, or phone numbers from sidebar viewers</li>
+    <li>Helldivers 2 account credentials or in-game identifiers</li>
+    <li>Precise location data</li>
+    <li>Payment or financial information</li>
+  </ul>
+
+  <h2>Information processed by Reddit</h2>
+  <p>Installing and using the App on a subreddit is subject to <a href="https://www.reddit.com/policies/privacy-policy">Reddit’s Privacy Policy</a> and <a href="https://www.reddit.com/policies/user-agreement">Reddit’s User Agreement</a>. Reddit processes moderator account data, subreddit context, and platform telemetry according to its own policies.</p>
+
+  <h2>Server-side data fetching</h2>
+  <p>When enabled by subreddit moderators, the App’s server periodically fetches <strong>public</strong> game status from external APIs:</p>
+  <table>
+    <thead>
+      <tr><th>Purpose</th><th>Host</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Major Order</td><td>api.live.prod.thehelldiversgame.com (Arrowhead official API)</td></tr>
+      <tr><td>Daily objectives (optional)</td><td>api.diveharder.com (third-party, if enabled)</td></tr>
+    </tbody>
+  </table>
+  <p>These requests are made by the App server on a schedule (approximately every 45 minutes). <strong>No per-visitor identity or Reddit user data is sent to these APIs</strong> as part of normal operation.</p>
+
+  <h2>Data stored by the App</h2>
+  <p>The App caches normalized order text (titles, objectives, expiry metadata) in Devvit Redis scoped to each subreddit installation. Cached content is derived from public upstream APIs, not from individual Reddit users.</p>
+
+  <h2>Logs</h2>
+  <p>Server logs may include technical diagnostics (timestamps, fetch success/failure, error messages). These logs are used for troubleshooting and are not sold.</p>
+
+  <h2>Children</h2>
+  <p>The App is not directed at children under 13. We do not knowingly collect personal information from children.</p>
+
+  <h2>Changes</h2>
+  <p>We may update this policy as the App or Reddit platform requirements change. The “Last updated” date at the top will be revised when material changes are made.</p>
+
+  <h2>Contact</h2>
+  <p>Questions or privacy requests: <a href="https://github.com/powered-on/superearth-dispatch/issues">GitHub Issues</a></p>
+
+  <p><a href="index.html">Back to SuperEarth Dispatch</a></p>
+</body>
+</html>

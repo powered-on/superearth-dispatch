@@ -9,11 +9,15 @@ Read-only Devvit app that shows **Helldivers 2 Major Order** and **daily objecti
 
 ## Legal (for Devvit / App Review)
 
-| Document | Link |
-|----------|------|
-| Privacy Policy | [docs/PRIVACY.md](https://github.com/powered-on/superearth-dispatch/blob/main/docs/PRIVACY.md) |
-| Terms and Conditions | [docs/TERMS.md](https://github.com/powered-on/superearth-dispatch/blob/main/docs/TERMS.md) |
+Use these **GitHub Pages** URLs in Reddit app settings (not `github.com/blob/...` links):
+
+| Document | URL |
+|----------|-----|
+| Privacy Policy | https://powered-on.github.io/superearth-dispatch/privacy.html |
+| Terms and Conditions | https://powered-on.github.io/superearth-dispatch/terms.html |
 | Software license | [LICENSE](https://github.com/powered-on/superearth-dispatch/blob/main/LICENSE) (GPL-3.0) |
+
+Markdown copies: [docs/PRIVACY.md](./docs/PRIVACY.md), [docs/TERMS.md](./docs/TERMS.md)
 
 ## Features
 
