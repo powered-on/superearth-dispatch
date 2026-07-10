@@ -5,6 +5,7 @@ import { computeWidgetHeight } from './sidebarWidgetCss.js';
 import {
   buildCustomWidgetUpdatePayload,
   formatTextareaProgressBar,
+  hasExpectedWidgetStyles,
   isCustomSidebarWidget,
   planSidebarWidgetSync,
   renderSidebarWidgetMarkdownPlain,
@@ -81,12 +82,13 @@ describe('renderSidebarWidgetMarkdownPlain', () => {
   it('renders markdown goals with blockquote panels and progress bars', () => {
     const text = renderSidebarWidgetMarkdownPlain(baseCache);
 
-    expect(text).toContain('### Major Order');
+    expect(text).toContain('**Major Order**');
     expect(text).toContain('**MAJOR ORDER: HOLD THE LINE**');
-    expect(text).toContain('> 🟧 Kill 600,000,000 Terminids');
+    expect(text).toContain('> 🟧 **Kill 600,000,000 Terminids**');
     expect(text).toMatch(/█+░+ 25%/);
-    expect(text).toContain('> 🟩 TERREK');
+    expect(text).toContain('> 🟩 **TERREK**');
     expect(text).not.toContain('> 🟨 TERREK');
+    expect(text).not.toContain('### Major Order');
     expect(text).not.toContain('<li class="sed-goal');
     expect(text).not.toContain('☑');
   });
@@ -103,7 +105,23 @@ describe('renderSidebarWidgetMarkdownPlain', () => {
       },
     });
 
-    expect(text).toContain('> ⚠ *Personal Orders unavailable');
+    expect(text).toContain('> **⚠** *Personal Orders unavailable');
+  });
+});
+
+describe('hasExpectedWidgetStyles', () => {
+  it('matches HD2 widget chrome colors', () => {
+    expect(
+      hasExpectedWidgetStyles({
+        backgroundColor: '#0d0f11',
+        headerColor: '#ffb900',
+      }),
+    ).toBe(true);
+  });
+
+  it('rejects missing or default styles', () => {
+    expect(hasExpectedWidgetStyles(undefined)).toBe(false);
+    expect(hasExpectedWidgetStyles({ backgroundColor: '#1a1a1b', headerColor: '#818384' })).toBe(false);
   });
 });
 

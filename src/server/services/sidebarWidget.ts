@@ -22,7 +22,26 @@ import { SIDEBAR_WIDGET_CSS, computeWidgetHeight } from './sidebarWidgetCss.js';
 const WIDGET_STYLES = {
   backgroundColor: '#0d0f11',
   headerColor: '#ffb900',
-};
+} as const;
+
+export { WIDGET_STYLES };
+
+function normalizeHexColor(color: string | undefined): string {
+  return (color ?? '').trim().toLowerCase();
+}
+
+export function hasExpectedWidgetStyles(
+  styles: { backgroundColor?: string; headerColor?: string } | undefined,
+): boolean {
+  return (
+    normalizeHexColor(styles?.backgroundColor) === WIDGET_STYLES.backgroundColor &&
+    normalizeHexColor(styles?.headerColor) === WIDGET_STYLES.headerColor
+  );
+}
+
+function sectionHeadingMarkdown(heading: string): string {
+  return `**${heading}**`;
+}
 
 function escapeHtml(value: string): string {
   return value
@@ -131,16 +150,16 @@ function formatGoalMarkdown(goal: OrderGoal): string {
   if (goal.progress?.kind === 'bar') {
     const percent = goalProgressPercent(goal.progress);
     const bar = formatTextareaProgressBar(percent);
-    return `> ${marker} ${goal.text}  \n> ${bar}`;
+    return `> ${marker} **${goal.text}**  \n> ${bar}`;
   }
 
   if (goal.progress?.kind === 'box') {
     const label = goalDisplayLabel(goal);
     const box = goal.progress.complete ? GOAL_BOX_COMPLETE_EMOJI : GOAL_BOX_PENDING_EMOJI;
-    return `> ${box} ${label}`;
+    return `> ${box} **${label}**`;
   }
 
-  return `> ${marker} ${goal.text}`;
+  return `> ${marker} **${goal.text}**`;
 }
 
 function formatOrderMarkdown(order: NormalizedOrder): string {
@@ -165,12 +184,12 @@ function renderSectionBlockMarkdown(
 
   const staleNote =
     section.status === 'stale'
-      ? `> ⚠ *Stale — last fetched ${new Date(section.fetchedAt).toLocaleString()}*`
+      ? `> **⚠** *Stale — last fetched ${new Date(section.fetchedAt).toLocaleString()}*`
       : '';
 
   if (section.status === 'standby') {
     const message = sectionErrorMessage(section) ?? 'Stand by for new orders.';
-    return [`### ${heading}`, `*${message}*`];
+    return [sectionHeadingMarkdown(heading), `*${message}*`];
   }
 
   if (
@@ -179,14 +198,14 @@ function renderSectionBlockMarkdown(
   ) {
     if (Array.isArray(section.data)) {
       const lines = section.data.map((order) => formatOrderMarkdown(order));
-      return [`### ${heading}`, `${lines.join('\n\n')}${staleNote ? `\n\n${staleNote}` : ''}`];
+      return [sectionHeadingMarkdown(heading), `${lines.join('\n\n')}${staleNote ? `\n\n${staleNote}` : ''}`];
     }
 
-    return [`### ${heading}`, `${formatOrderMarkdown(section.data)}${staleNote ? `\n\n${staleNote}` : ''}`];
+    return [sectionHeadingMarkdown(heading), `${formatOrderMarkdown(section.data)}${staleNote ? `\n\n${staleNote}` : ''}`];
   }
 
   const message = sectionErrorMessage(section) ?? 'Unavailable';
-  return [`### ${heading}`, `> ⚠ *${message}*`];
+  return [sectionHeadingMarkdown(heading), `> **⚠** *${message}*`];
 }
 
 export function renderSidebarWidgetMarkdownPlain(cache: CachedOrders): string {
@@ -271,6 +290,10 @@ type SidebarWidgetRecord = {
   name: string;
   css?: string;
   height?: number;
+  styles?: {
+    backgroundColor?: string;
+    headerColor?: string;
+  };
 };
 
 export function isCustomSidebarWidget(widget: SidebarWidgetRecord): boolean {
@@ -434,12 +457,18 @@ async function syncTextareaSidebarWidget(
   subredditName: string,
   cache: CachedOrders,
   plan: Extract<SidebarWidgetSyncPlan, { mode: typeof WIDGET_KIND_TEXTAREA }>,
+  targetWidget?: SidebarWidgetRecord,
 ): Promise<void> {
   const plainText = renderSidebarWidgetMarkdownPlain(cache);
 
   await removeWidgetsById(subredditName, plan.duplicateIds, 'duplicate textarea widget');
 
-  if (plan.targetId) {
+  const needsStyleRecreate =
+    plan.targetId &&
+    targetWidget &&
+    !hasExpectedWidgetStyles(targetWidget.styles);
+
+  if (plan.targetId && !needsStyleRecreate) {
     try {
       await reddit.updateWidget({
         ...buildTextareaWidgetPayload(subredditName, plainText),
@@ -452,6 +481,9 @@ async function syncTextareaSidebarWidget(
       console.warn('[widget] textarea update failed, will recreate', error);
       await deleteWidgetOrThrow(subredditName, plan.targetId);
     }
+  } else if (plan.targetId && needsStyleRecreate) {
+    console.info('[widget] recreating textarea widget to apply HD2 chrome styles');
+    await deleteWidgetOrThrow(subredditName, plan.targetId);
   }
 
   const widgetId = await createTextareaSidebarWidget(subredditName, cache);
@@ -480,7 +512,7 @@ async function syncSidebarWidgetState(subredditName: string, cache: CachedOrders
     }
   }
 
-  await syncTextareaSidebarWidget(subredditName, cache, plan);
+  await syncTextareaSidebarWidget(subredditName, cache, plan, matching.find((widget) => widget.id === plan.targetId));
 }
 
 export async function readdSidebarWidget(cache: CachedOrders): Promise<SidebarWidgetCreateResult> {
