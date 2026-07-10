@@ -2,7 +2,15 @@ import { describe, expect, it } from 'vitest';
 import type { CachedOrders } from '../../shared/types.js';
 import { MAJOR_ORDER_STANDBY_MESSAGE } from '../../shared/types.js';
 import { computeWidgetHeight } from './sidebarWidgetCss.js';
-import { isCustomSidebarWidget, renderSidebarWidgetMarkdownPlain, renderSidebarWidgetText } from './sidebarWidget.js';
+import {
+  buildCustomWidgetUpdatePayload,
+  formatTextareaProgressBar,
+  isCustomSidebarWidget,
+  planSidebarWidgetSync,
+  renderSidebarWidgetMarkdownPlain,
+  renderSidebarWidgetText,
+} from './sidebarWidget.js';
+import { WIDGET_KIND_CUSTOM, WIDGET_KIND_TEXTAREA, WIDGET_SHORT_NAME } from '../../shared/types.js';
 
 const baseCache: CachedOrders = {
   lastUpdated: '2026-07-10T16:15:00.000Z',
@@ -47,7 +55,8 @@ describe('renderSidebarWidgetText', () => {
     expect(text).toContain('sed-goal--bar');
     expect(text).toContain('--sed-pct:25%');
     expect(text).toContain('sed-goal--brand');
-    expect(text).toContain('sed-check">✓');
+    expect(text).toContain('sed-goal--box');
+    expect(text).toContain('sed-box--complete');
     expect(text).toContain('sed-countdown');
     expect(text).toContain('Major: Arrowhead · Personal: Diveharder');
   });
@@ -69,13 +78,40 @@ describe('renderSidebarWidgetText', () => {
 });
 
 describe('renderSidebarWidgetMarkdownPlain', () => {
-  it('renders markdown goals without HTML wrappers', () => {
+  it('renders markdown goals with blockquote panels and progress bars', () => {
     const text = renderSidebarWidgetMarkdownPlain(baseCache);
 
     expect(text).toContain('### Major Order');
-    expect(text).toContain('- Kill 600,000,000 Terminids (25%)');
-    expect(text).toContain('TERREK ✓');
+    expect(text).toContain('**MAJOR ORDER: HOLD THE LINE**');
+    expect(text).toContain('> 🟧 Kill 600,000,000 Terminids');
+    expect(text).toMatch(/█+░+ 25%/);
+    expect(text).toContain('> 🟩 TERREK');
+    expect(text).not.toContain('> 🟨 TERREK');
     expect(text).not.toContain('<li class="sed-goal');
+    expect(text).not.toContain('☑');
+  });
+
+  it('renders unavailable sections as blockquote callouts', () => {
+    const text = renderSidebarWidgetMarkdownPlain({
+      ...baseCache,
+      personal: {
+        status: 'unavailable',
+        fetchedAt: '2026-07-10T16:15:00.000Z',
+        source: 'diveharder',
+        data: [],
+        errorMessage: 'Personal Orders unavailable — third-party API unreachable.',
+      },
+    });
+
+    expect(text).toContain('> ⚠ *Personal Orders unavailable');
+  });
+});
+
+describe('formatTextareaProgressBar', () => {
+  it('renders a fixed-width block bar', () => {
+    expect(formatTextareaProgressBar(25)).toBe('███░░░░░░░ 25%');
+    expect(formatTextareaProgressBar(100)).toBe('██████████ 100%');
+    expect(formatTextareaProgressBar(0)).toBe('░░░░░░░░░░ 0%');
   });
 });
 
@@ -105,5 +141,48 @@ describe('isCustomSidebarWidget', () => {
         name: 'SuperEarth Dispatch',
       }),
     ).toBe(false);
+  });
+});
+
+describe('planSidebarWidgetSync', () => {
+  it('prefers custom widgets over textarea widgets', () => {
+    const plan = planSidebarWidgetSync([
+      { id: 'textarea-1', name: WIDGET_SHORT_NAME },
+      { id: 'custom-1', name: WIDGET_SHORT_NAME, css: '.sed{}', height: 220 },
+      { id: 'custom-2', name: WIDGET_SHORT_NAME, css: '.sed{}', height: 220 },
+    ]);
+
+    expect(plan).toEqual({
+      mode: WIDGET_KIND_CUSTOM,
+      targetId: 'custom-1',
+      duplicateIds: ['custom-2'],
+      legacyTextareaIds: ['textarea-1'],
+    });
+  });
+
+  it('falls back to textarea when no custom widget exists', () => {
+    const plan = planSidebarWidgetSync([
+      { id: 'textarea-1', name: WIDGET_SHORT_NAME },
+      { id: 'textarea-2', name: WIDGET_SHORT_NAME },
+    ]);
+
+    expect(plan).toEqual({
+      mode: WIDGET_KIND_TEXTAREA,
+      targetId: 'textarea-1',
+      duplicateIds: ['textarea-2'],
+    });
+  });
+});
+
+describe('buildCustomWidgetUpdatePayload', () => {
+  it('includes scoped CSS and computed height without imageData', () => {
+    const text = renderSidebarWidgetText(baseCache);
+    const payload = buildCustomWidgetUpdatePayload('superearth_dispat_dev', text, 'widget-123');
+
+    expect(payload.type).toBe('custom');
+    expect(payload.id).toBe('widget-123');
+    expect(payload.css).toContain('.sed-goal');
+    expect(payload.height).toBe(computeWidgetHeight(text));
+    expect('imageData' in payload).toBe(false);
   });
 });

@@ -18,6 +18,26 @@ export const GOAL_TONE_COLORS: Record<Exclude<OrderGoalTone, 'default'>, string>
   illuminate: '#CD8AE9',
 };
 
+/**
+ * Colored square emoji for textarea widget goals.
+ * Reddit strips inline HTML/CSS in TextAreaWidget markdown — emoji are the reliable fallback.
+ */
+export const GOAL_TONE_EMOJI: Record<OrderGoalTone, string> = {
+  brand: '🟨',
+  terminid: '🟧',
+  automaton: '🟥',
+  illuminate: '🟪',
+  default: '▪',
+};
+
+export function goalToneEmoji(tone: OrderGoalTone): string {
+  return GOAL_TONE_EMOJI[tone];
+}
+
+/** Planet hold box markers for textarea widgets (mirrors grey/green completion boxes). */
+export const GOAL_BOX_PENDING_EMOJI = '⬛';
+export const GOAL_BOX_COMPLETE_EMOJI = '🟩';
+
 const FACTION_RACE_TO_TONE: Record<number, OrderGoalTone> = {
   1: 'automaton',
   2: 'terminid',

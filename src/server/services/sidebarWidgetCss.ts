@@ -1,5 +1,15 @@
 /** Scoped CSS for Reddit custom sidebar widget (markdown + HTML goals). */
 export const SIDEBAR_WIDGET_CSS = `
+p,
+li,
+em,
+ul {
+  font-family: "Rajdhani", "Segoe UI", system-ui, sans-serif;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: #c8cbcd;
+}
+
 h3 {
   margin: 0.75rem 0 0.35rem;
   font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
@@ -20,6 +30,7 @@ p {
 
 .sed-order-title {
   color: #fff;
+  font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
 }
 
 .sed-order-title strong {
@@ -82,6 +93,7 @@ p {
 .sed-goal--bar .sed-pct {
   display: block;
   font-size: 0.68rem;
+  font-weight: 500;
   color: #a8abae;
   margin-top: 0.15rem;
 }
@@ -89,17 +101,53 @@ p {
 .sed-goal--bar .sed-pct::before {
   content: "";
   display: block;
-  height: 4px;
-  width: var(--sed-pct, 0%);
-  max-width: 100%;
+  height: 7px;
+  width: 100%;
   margin-bottom: 0.2rem;
-  background: currentColor;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-sizing: border-box;
+  background:
+    linear-gradient(currentColor, currentColor) 0 0 / var(--sed-pct, 0%) 100% no-repeat,
+    rgba(0, 0, 0, 0.25);
 }
 
-.sed-check {
-  color: #3d9e46;
-  font-weight: 700;
+.sed-goal--brand.sed-goal--bar .sed-pct::before {
+  color: #ffe900;
+}
+
+.sed-goal--terminid.sed-goal--bar .sed-pct::before {
+  color: #ffb900;
+}
+
+.sed-goal--automaton.sed-goal--bar .sed-pct::before {
+  color: #ff7171;
+}
+
+.sed-goal--illuminate.sed-goal--bar .sed-pct::before {
+  color: #cd8ae9;
+}
+
+.sed-goal--default.sed-goal--bar .sed-pct::before {
+  color: #ffe900;
+}
+
+.sed-goal--box {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.sed-box {
+  width: 11px;
+  height: 11px;
+  flex-shrink: 0;
+  background: #2a2d31;
+  border: 1px solid #45494e;
+}
+
+.sed-box--complete {
+  background: #3d9e46;
+  border-color: #4db858;
 }
 
 .sed-standby {

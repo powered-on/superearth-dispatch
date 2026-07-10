@@ -4,6 +4,7 @@ import { createSidebarPost } from '../core/install.js';
 import { readCache } from '../services/cache.js';
 import { runRefreshPipeline } from '../services/refreshPipeline.js';
 import { readdSidebarWidget } from '../services/sidebarWidget.js';
+import { runWidgetSyncIfDue } from '../services/widgetSyncSchedule.js';
 
 export const schedulerRoutes = new Hono();
 
@@ -14,6 +15,16 @@ schedulerRoutes.post('/refresh-orders', async (c) => {
   } catch (error) {
     console.error('refresh-orders cron failed', error);
     return c.json({ status: 'error', message: 'refresh failed' }, 500);
+  }
+});
+
+schedulerRoutes.post('/sync-widget', async (c) => {
+  try {
+    const result = await runWidgetSyncIfDue();
+    return c.json({ status: 'success', ...result });
+  } catch (error) {
+    console.error('sync-widget cron failed', error);
+    return c.json({ status: 'error', message: 'widget sync failed' }, 500);
   }
 });
 
@@ -73,8 +84,8 @@ menu.post('/readd-sidebar-widget', async (c) => {
       return c.json({ showToast: 'No cached orders yet — run refresh first.' }, 400);
     }
 
-    await readdSidebarWidget(cache);
-    return c.json({ showToast: 'Sidebar widget re-added.' });
+    const result = await readdSidebarWidget(cache);
+    return c.json({ showToast: result.message });
   } catch (error) {
     console.error('re-add sidebar widget failed', error);
     const message = error instanceof Error ? error.message : 'Re-add sidebar widget failed';

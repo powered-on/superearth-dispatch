@@ -1,15 +1,23 @@
 import { context, reddit, redis } from '@devvit/web/server';
 import type { OrderGoal } from '../../shared/orderGoals.js';
-import { goalDisplayLabel, goalProgressPercent } from '../../shared/orderGoals.js';
+import {
+  GOAL_BOX_COMPLETE_EMOJI,
+  GOAL_BOX_PENDING_EMOJI,
+  goalDisplayLabel,
+  goalProgressPercent,
+  goalToneEmoji,
+} from '../../shared/orderGoals.js';
 import type { CachedOrders, NormalizedOrder, SectionCache } from '../../shared/types.js';
 import {
   WIDGET_ID_KEY,
-  WIDGET_KIND_CUSTOM,
   WIDGET_KIND_KEY,
+  WIDGET_KIND_CUSTOM,
+  WIDGET_KIND_TEXTAREA,
   WIDGET_SHORT_NAME,
 } from '../../shared/types.js';
 import { isUsableOrderData, sectionErrorMessage } from '../../shared/sectionState.js';
-import { computeWidgetHeight, SIDEBAR_WIDGET_CSS } from './sidebarWidgetCss.js';
+import { recordWidgetSync } from './widgetSyncSchedule.js';
+import { SIDEBAR_WIDGET_CSS, computeWidgetHeight } from './sidebarWidgetCss.js';
 
 const WIDGET_STYLES = {
   backgroundColor: '#0d0f11',
@@ -80,9 +88,9 @@ function formatGoalHtml(goal: OrderGoal): string {
   }
 
   if (goal.progress?.kind === 'box') {
-    const mark = goal.progress.complete ? '✓' : '○';
     const doneClass = goal.progress.complete ? ' sed-goal--done' : '';
-    return `<li class="sed-goal ${toneClass}${doneClass}">${escapeHtml(goalDisplayLabel(goal))} <span class="sed-check">${mark}</span></li>`;
+    const boxClass = goal.progress.complete ? ' sed-box--complete' : '';
+    return `<li class="sed-goal ${toneClass} sed-goal--box${doneClass}"><span class="sed-box${boxClass}" aria-hidden="true"></span><span class="sed-goal-label">${escapeHtml(goalDisplayLabel(goal))}</span></li>`;
   }
 
   return `<li class="sed-goal ${toneClass}">${escapeHtml(goal.text)}</li>`;
@@ -105,31 +113,46 @@ function formatOrderHtml(order: NormalizedOrder): string {
   return lines.join('\n\n');
 }
 
-function formatOrderMarkdown(order: NormalizedOrder): string {
-  const countdown = formatCountdownRemaining(order.expiresAt);
-  const countdownSuffix = countdown ? ` *(${countdown})*` : '';
-  const lines = [`**${order.title}**${countdownSuffix}`, order.objective];
+/** Block-char progress bar for textarea widgets (approximates custom-widget CSS bars). */
+const TEXTAREA_PROGRESS_BAR_WIDTH = 10;
 
-  if (order.goals?.length) {
-    lines.push(
-      order.goals
-        .map((goal) => {
-          if (goal.progress?.kind === 'bar') {
-            const percent = goalProgressPercent(goal.progress);
-            return `- ${goal.text} (${percent}%)`;
-          }
+export function formatTextareaProgressBar(percent: number): string {
+  const clamped = Math.max(0, Math.min(100, percent));
+  const filled = Math.max(
+    0,
+    Math.min(TEXTAREA_PROGRESS_BAR_WIDTH, Math.round((clamped / 100) * TEXTAREA_PROGRESS_BAR_WIDTH)),
+  );
+  return `${'█'.repeat(filled)}${'░'.repeat(TEXTAREA_PROGRESS_BAR_WIDTH - filled)} ${clamped}%`;
+}
 
-          if (goal.progress?.kind === 'box') {
-            return `- ${goalDisplayLabel(goal)} ${goal.progress.complete ? '✓' : '○'}`;
-          }
+function formatGoalMarkdown(goal: OrderGoal): string {
+  const marker = goalToneEmoji(goal.tone);
 
-          return `- ${goal.text}`;
-        })
-        .join('\n'),
-    );
+  if (goal.progress?.kind === 'bar') {
+    const percent = goalProgressPercent(goal.progress);
+    const bar = formatTextareaProgressBar(percent);
+    return `> ${marker} ${goal.text}  \n> ${bar}`;
   }
 
-  return lines.join('\n\n');
+  if (goal.progress?.kind === 'box') {
+    const label = goalDisplayLabel(goal);
+    const box = goal.progress.complete ? GOAL_BOX_COMPLETE_EMOJI : GOAL_BOX_PENDING_EMOJI;
+    return `> ${box} ${label}`;
+  }
+
+  return `> ${marker} ${goal.text}`;
+}
+
+function formatOrderMarkdown(order: NormalizedOrder): string {
+  const countdown = formatCountdownRemaining(order.expiresAt);
+  const countdownSuffix = countdown ? ` (${countdown})` : '';
+  const parts = [`**${order.title}**${countdownSuffix}`, order.objective];
+
+  if (order.goals?.length) {
+    parts.push(...order.goals.map(formatGoalMarkdown));
+  }
+
+  return parts.join('\n\n');
 }
 
 function renderSectionBlockMarkdown(
@@ -142,7 +165,7 @@ function renderSectionBlockMarkdown(
 
   const staleNote =
     section.status === 'stale'
-      ? `\n\n*Stale — last fetched ${new Date(section.fetchedAt).toLocaleString()}*`
+      ? `> ⚠ *Stale — last fetched ${new Date(section.fetchedAt).toLocaleString()}*`
       : '';
 
   if (section.status === 'standby') {
@@ -156,14 +179,14 @@ function renderSectionBlockMarkdown(
   ) {
     if (Array.isArray(section.data)) {
       const lines = section.data.map((order) => formatOrderMarkdown(order));
-      return [`### ${heading}`, `${lines.join('\n\n')}${staleNote}`];
+      return [`### ${heading}`, `${lines.join('\n\n')}${staleNote ? `\n\n${staleNote}` : ''}`];
     }
 
-    return [`### ${heading}`, `${formatOrderMarkdown(section.data)}${staleNote}`];
+    return [`### ${heading}`, `${formatOrderMarkdown(section.data)}${staleNote ? `\n\n${staleNote}` : ''}`];
   }
 
   const message = sectionErrorMessage(section) ?? 'Unavailable';
-  return [`### ${heading}`, `*${message}*`];
+  return [`### ${heading}`, `> ⚠ *${message}*`];
 }
 
 export function renderSidebarWidgetMarkdownPlain(cache: CachedOrders): string {
@@ -254,27 +277,93 @@ export function isCustomSidebarWidget(widget: SidebarWidgetRecord): boolean {
   return typeof widget.css === 'string' && typeof widget.height === 'number';
 }
 
-type CustomWidgetPayload = {
+type TextareaWidgetPayload = {
+  type: 'textarea';
+  subreddit: string;
+  shortName: string;
+  text: string;
+  styles: typeof WIDGET_STYLES;
+};
+
+type CustomWidgetUpdatePayload = {
   type: 'custom';
   subreddit: string;
+  id: string;
   shortName: string;
   text: string;
   css: string;
   height: number;
-  imageData: [];
   styles: typeof WIDGET_STYLES;
 };
 
-function buildCustomWidgetPayload(subredditName: string, text: string): CustomWidgetPayload {
+export type SidebarWidgetCreateResult = {
+  widgetId: string;
+  kind: typeof WIDGET_KIND_CUSTOM | typeof WIDGET_KIND_TEXTAREA;
+  message: string;
+};
+
+export type SidebarWidgetSyncPlan =
+  | {
+      mode: typeof WIDGET_KIND_CUSTOM;
+      targetId: string;
+      duplicateIds: string[];
+      legacyTextareaIds: string[];
+    }
+  | {
+      mode: typeof WIDGET_KIND_TEXTAREA;
+      targetId?: string;
+      duplicateIds: string[];
+    };
+
+function buildTextareaWidgetPayload(subredditName: string, text: string): TextareaWidgetPayload {
+  return {
+    type: 'textarea',
+    subreddit: subredditName,
+    shortName: WIDGET_SHORT_NAME,
+    text,
+    styles: WIDGET_STYLES,
+  };
+}
+
+export function buildCustomWidgetUpdatePayload(
+  subredditName: string,
+  text: string,
+  widgetId: string,
+): CustomWidgetUpdatePayload {
   return {
     type: 'custom',
     subreddit: subredditName,
+    id: widgetId,
     shortName: WIDGET_SHORT_NAME,
     text,
     css: SIDEBAR_WIDGET_CSS,
     height: computeWidgetHeight(text),
-    imageData: [],
     styles: WIDGET_STYLES,
+  };
+}
+
+export function planSidebarWidgetSync(matching: SidebarWidgetRecord[]): SidebarWidgetSyncPlan {
+  const customWidgets = matching.filter(isCustomSidebarWidget);
+  const textareaWidgets = matching.filter((widget) => !isCustomSidebarWidget(widget));
+
+  if (customWidgets.length > 0) {
+    const [customTarget, ...customDuplicates] = customWidgets;
+    if (!customTarget) {
+      throw new Error('Expected at least one custom sidebar widget');
+    }
+
+    return {
+      mode: WIDGET_KIND_CUSTOM,
+      targetId: customTarget.id,
+      duplicateIds: customDuplicates.map((widget) => widget.id),
+      legacyTextareaIds: textareaWidgets.map((widget) => widget.id),
+    };
+  }
+
+  return {
+    mode: WIDGET_KIND_TEXTAREA,
+    targetId: textareaWidgets[0]?.id,
+    duplicateIds: textareaWidgets.slice(1).map((widget) => widget.id),
   };
 }
 
@@ -314,95 +403,131 @@ async function removeAllNamedWidgets(subredditName: string): Promise<void> {
   }
 }
 
-async function createCustomSidebarWidget(subredditName: string, cache: CachedOrders): Promise<string> {
-  const styledText = renderSidebarWidgetText(cache);
-
-  try {
-    const created = await reddit.addWidget(buildCustomWidgetPayload(subredditName, styledText));
-    return created.id;
-  } catch (styledError) {
-    console.warn('[widget] styled custom widget create failed, retrying markdown-only', styledError);
-  }
-
+async function createTextareaSidebarWidget(subredditName: string, cache: CachedOrders): Promise<string> {
   const plainText = renderSidebarWidgetMarkdownPlain(cache);
-  try {
-    const created = await reddit.addWidget(buildCustomWidgetPayload(subredditName, plainText));
-    return created.id;
-  } catch (plainError) {
-    throw new Error(
-      `Failed to create custom sidebar widget: ${formatWidgetError(plainError)}`,
-    );
+  const created = await reddit.addWidget(buildTextareaWidgetPayload(subredditName, plainText));
+  return created.id;
+}
+
+async function removeWidgetsById(subredditName: string, widgetIds: string[], reason: string): Promise<void> {
+  for (const widgetId of widgetIds) {
+    console.info(`[widget] removing ${reason}`, widgetId);
+    await deleteWidgetOrThrow(subredditName, widgetId);
   }
 }
 
-async function deleteWidgetQuietly(subredditName: string, widgetId: string): Promise<void> {
-  try {
-    await reddit.deleteWidget(subredditName, widgetId);
-  } catch (error) {
-    console.warn('[widget] delete failed (non-fatal)', error);
-  }
+async function updateCustomSidebarWidget(
+  subredditName: string,
+  cache: CachedOrders,
+  widgetId: string,
+): Promise<void> {
+  const htmlText = renderSidebarWidgetText(cache);
+  await reddit.updateWidget({
+    ...buildCustomWidgetUpdatePayload(subredditName, htmlText, widgetId),
+    imageData: [],
+  });
+  await redis.set(WIDGET_ID_KEY, widgetId);
+  await redis.set(WIDGET_KIND_KEY, WIDGET_KIND_CUSTOM);
 }
 
-async function syncCustomWidget(subredditName: string, text: string): Promise<void> {
-  const basePayload = buildCustomWidgetPayload(subredditName, text);
+async function syncTextareaSidebarWidget(
+  subredditName: string,
+  cache: CachedOrders,
+  plan: Extract<SidebarWidgetSyncPlan, { mode: typeof WIDGET_KIND_TEXTAREA }>,
+): Promise<void> {
+  const plainText = renderSidebarWidgetMarkdownPlain(cache);
+
+  await removeWidgetsById(subredditName, plan.duplicateIds, 'duplicate textarea widget');
+
+  if (plan.targetId) {
+    try {
+      await reddit.updateWidget({
+        ...buildTextareaWidgetPayload(subredditName, plainText),
+        id: plan.targetId,
+      });
+      await redis.set(WIDGET_ID_KEY, plan.targetId);
+      await redis.set(WIDGET_KIND_KEY, WIDGET_KIND_TEXTAREA);
+      return;
+    } catch (error) {
+      console.warn('[widget] textarea update failed, will recreate', error);
+      await deleteWidgetOrThrow(subredditName, plan.targetId);
+    }
+  }
+
+  const widgetId = await createTextareaSidebarWidget(subredditName, cache);
+  await redis.set(WIDGET_ID_KEY, widgetId);
+  await redis.set(WIDGET_KIND_KEY, WIDGET_KIND_TEXTAREA);
+}
+
+async function syncSidebarWidgetState(subredditName: string, cache: CachedOrders): Promise<void> {
   const widgets = await reddit.getWidgets(subredditName);
   const matching = widgets.filter(
     (widget) => widget.name.toLowerCase() === WIDGET_SHORT_NAME.toLowerCase(),
   ) as SidebarWidgetRecord[];
 
-  const customWidgets = matching.filter(isCustomSidebarWidget);
-  const legacyWidgets = matching.filter((widget) => !isCustomSidebarWidget(widget));
+  const plan = planSidebarWidgetSync(matching);
 
-  for (const legacy of legacyWidgets) {
-    console.info('[widget] removing legacy textarea widget', legacy.id);
-    await deleteWidgetQuietly(subredditName, legacy.id);
-  }
-
-  const customTarget = customWidgets[0];
-  if (customTarget) {
-    for (const duplicate of customWidgets.slice(1)) {
-      console.info('[widget] removing duplicate custom widget', duplicate.id);
-      await deleteWidgetQuietly(subredditName, duplicate.id);
-    }
+  if (plan.mode === WIDGET_KIND_CUSTOM) {
+    await removeWidgetsById(subredditName, plan.duplicateIds, 'duplicate custom widget');
+    await removeWidgetsById(subredditName, plan.legacyTextareaIds, 'legacy textarea widget');
 
     try {
-      await reddit.updateWidget({
-        ...basePayload,
-        id: customTarget.id,
-      });
-      await redis.set(WIDGET_ID_KEY, customTarget.id);
-      await redis.set(WIDGET_KIND_KEY, WIDGET_KIND_CUSTOM);
+      await updateCustomSidebarWidget(subredditName, cache, plan.targetId);
       return;
     } catch (error) {
-      console.warn('[widget] custom update failed, will recreate', error);
-      await deleteWidgetQuietly(subredditName, customTarget.id);
+      console.error('[widget] custom update failed; preserving PRAW-created widget', error);
+      throw error;
     }
   }
 
-  const created = await reddit.addWidget(basePayload);
-  await redis.set(WIDGET_ID_KEY, created.id);
-  await redis.set(WIDGET_KIND_KEY, WIDGET_KIND_CUSTOM);
+  await syncTextareaSidebarWidget(subredditName, cache, plan);
 }
 
-export async function readdSidebarWidget(cache: CachedOrders): Promise<void> {
+export async function readdSidebarWidget(cache: CachedOrders): Promise<SidebarWidgetCreateResult> {
   const subredditName = await resolveSubredditName();
+  const widgets = await reddit.getWidgets(subredditName);
+  const matching = widgets.filter(
+    (widget) => widget.name.toLowerCase() === WIDGET_SHORT_NAME.toLowerCase(),
+  ) as SidebarWidgetRecord[];
+  const plan = planSidebarWidgetSync(matching);
+
+  if (plan.mode === WIDGET_KIND_CUSTOM) {
+    await removeWidgetsById(subredditName, plan.duplicateIds, 'duplicate custom widget');
+    await removeWidgetsById(subredditName, plan.legacyTextareaIds, 'legacy textarea widget');
+
+    await updateCustomSidebarWidget(subredditName, cache, plan.targetId);
+
+    return {
+      widgetId: plan.targetId,
+      kind: WIDGET_KIND_CUSTOM,
+      message: 'SuperEarth Dispatch custom sidebar widget updated.',
+    };
+  }
 
   await removeAllNamedWidgets(subredditName);
   await redis.del(WIDGET_ID_KEY, WIDGET_KIND_KEY);
 
-  const widgetId = await createCustomSidebarWidget(subredditName, cache);
+  const widgetId = await createTextareaSidebarWidget(subredditName, cache);
   await redis.set(WIDGET_ID_KEY, widgetId);
-  await redis.set(WIDGET_KIND_KEY, WIDGET_KIND_CUSTOM);
+  await redis.set(WIDGET_KIND_KEY, WIDGET_KIND_TEXTAREA);
+
+  return {
+    widgetId,
+    kind: WIDGET_KIND_TEXTAREA,
+    message:
+      'SuperEarth Dispatch sidebar widget re-added (textarea with HD2-style markdown). Run scripts/create-custom-widget.py for full CSS styling when available.',
+  };
 }
 
-export async function syncSidebarWidget(cache: CachedOrders): Promise<void> {
+export async function syncSidebarWidget(cache: CachedOrders): Promise<boolean> {
   const subredditName = await resolveSubredditName();
 
-  const text = renderSidebarWidgetText(cache);
-
   try {
-    await syncCustomWidget(subredditName, text);
+    await syncSidebarWidgetState(subredditName, cache);
+    await recordWidgetSync();
+    return true;
   } catch (error) {
-    console.error('[widget] sidebar sync failed (non-fatal)', error);
+    console.error('[widget] sidebar sync failed', error);
+    return false;
   }
 }

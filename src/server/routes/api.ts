@@ -71,10 +71,11 @@ api.post('/mod/readd-sidebar-widget', async (c) => {
       );
     }
 
-    await readdSidebarWidget(cache);
+    const result = await readdSidebarWidget(cache);
     return c.json({
       status: 'ok',
-      message: 'Sidebar widget re-added.',
+      message: result.message,
+      widgetKind: result.kind,
       orders: await buildOrdersPayload(),
     });
   } catch (error) {

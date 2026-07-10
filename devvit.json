@@ -19,11 +19,19 @@
   },
   "permissions": {
     "redis": true,
+    "media": true,
     "http": {
       "enable": true,
       "domains": [
         "thehelldiversgame.com",
-        "diveharder.com"
+        "diveharder.com",
+        "random.org",
+        "www.random.org",
+        "amazonaws.com",
+        "reddit-uploaded-media.s3-accelerate.amazonaws.com",
+        "reddit-uploaded-media.s3.amazonaws.com",
+        "reddit-subreddit-uploaded-media.s3-accelerate.amazonaws.com",
+        "reddit-subreddit-uploaded-media.s3.amazonaws.com"
       ]
     },
     "reddit": {
@@ -68,6 +76,10 @@
       "refreshOrders": {
         "endpoint": "/internal/scheduler/refresh-orders",
         "cron": "*/45 * * * *"
+      },
+      "syncWidget": {
+        "endpoint": "/internal/scheduler/sync-widget",
+        "cron": "*/5 * * * *"
       }
     }
   },

@@ -17,6 +17,33 @@ A fan-made Reddit sidebar app for **Helldivers 2** subreddits. Visitors can see 
 
 ## Changelog
 
+### 0.0.36 — 2026-07-10
+
+- **Textarea fallback styling:** blockquote goal panels, Unicode progress bars, faction emoji on kill quotas (🟧🟥🟪), ⬛/🟩 hold boxes
+- Custom widget CSS: base Rajdhani/Barlow typography aligned with execution mock
+- Widget sync cron every 5 minutes; PRAW bootstrap script for custom widget creation
+
+### 0.0.35 — 2026-07-10
+
+- **PRAW + Devvit split:** custom sidebar widget bootstrap via `scripts/create-custom-widget.py`; app updates existing custom widgets (text/css/height) instead of deleting them
+- Re-add preserves and refreshes PRAW-created custom widgets; textarea fallback still used when no custom widget exists
+
+### 0.0.18 — 2026-07-10
+
+- Fix widget placeholder URL: prefer UploadSrImg, resolve S3 Location/websocket CDN URL for imageData
+
+### 0.0.17 — 2026-07-10
+
+- Custom widget placeholder: use Reddit widget image upload API (not post media); show custom error on textarea fallback
+
+### 0.0.16 — 2026-07-10
+
+- Custom sidebar widget: upload 1×1 placeholder image for required `imageData` field
+
+### 0.0.15 — 2026-07-10
+
+- Fix custom widget create: omit empty `imageData` (Reddit rejects `[]`); fall back to textarea widget on create failure
+
 ### 0.0.14 — 2026-07-10
 
 - Fix re-add sidebar widget: verified deletes, subreddit context fallback, markdown fallback, clearer errors
@@ -75,3 +102,28 @@ A fan-made Reddit sidebar app for **Helldivers 2** subreddits. Visitors can see 
 - Moderator install settings for each section
 - Scheduled background refresh and sidebar widget sync
 - Partial, stale, and unavailable states with source attribution
+
+## Custom sidebar widget (HD2 styling)
+
+Devvit cannot reliably **create** Reddit `custom` sidebar widgets (platform `imageData` gap). Use a one-time PRAW bootstrap, then let the app **update** the widget on refresh and cron sync.
+
+1. Create a [Reddit script app](https://www.reddit.com/prefs/apps) and note client id/secret.
+2. As a subreddit mod:
+
+```bash
+pip install -r scripts/requirements.txt
+export REDDIT_CLIENT_ID=...
+export REDDIT_CLIENT_SECRET=...
+export REDDIT_USERNAME=...
+export REDDIT_PASSWORD=...
+export SED_SUBREDDIT=your_subreddit_name   # optional; default playtest sub
+python scripts/create-custom-widget.py
+```
+
+3. Upload/playtest the Devvit app and trigger **Force refresh** (or wait for cron).
+
+**Notes**
+
+- Do not delete the custom widget manually; **Re-add sidebar widget** updates an existing custom widget instead of replacing it with textarea.
+- Subreddits without the PRAW bootstrap continue to use the textarea fallback.
+- Re-add without a custom widget still creates textarea and points mods to the script above.
