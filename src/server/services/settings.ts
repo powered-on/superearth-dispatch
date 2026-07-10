@@ -6,6 +6,6 @@ export async function readInstallSettings(): Promise<InstallSettings> {
   return {
     showMajorOrder: values.showMajorOrder ?? true,
     showPersonalObjectives: values.showPersonalObjectives ?? true,
-    personalUseThirdPartyApi: values.personalUseThirdPartyApi ?? true,
+    personalUseThirdPartyApi: values.personalUseThirdPartyApi ?? false,
   };
 }

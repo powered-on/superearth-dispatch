@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.4 — 2026-07-10
+
+### Changed
+
+- HTTP domain request narrowed to official AHGS host only (`api.live.prod.thehelldiversgame.com`); diveharder removed from `devvit.json` pending separate approval
+- Third-party personal API toggle defaults off; clear message when domain not declared
+
 ## 0.0.3 — 2026-07-10
 
 ### Fixed

@@ -1,6 +1,9 @@
 {
   "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
   "name": "superearth-dispatch",
+  "marketingAssets": {
+    "icon": "assets/icon.png"
+  },
   "post": {
     "dir": "dist/client",
     "entrypoints": {
@@ -19,8 +22,7 @@
     "http": {
       "enable": true,
       "domains": [
-        "api.live.prod.thehelldiversgame.com",
-        "api.diveharder.com"
+        "api.live.prod.thehelldiversgame.com"
       ]
     },
     "reddit": {
@@ -43,8 +45,8 @@
       "personalUseThirdPartyApi": {
         "type": "boolean",
         "label": "Personal: use third-party API",
-        "defaultValue": true,
-        "helpText": "When enabled, daily objectives load from api.diveharder.com. When disabled, uses official Arrowhead API when available."
+        "defaultValue": false,
+        "helpText": "Requires api.diveharder.com Devvit domain approval (not requested in this version). When disabled, uses official Arrowhead API when available."
       }
     }
   },

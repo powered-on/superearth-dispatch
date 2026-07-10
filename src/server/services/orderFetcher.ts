@@ -4,8 +4,7 @@ import type {
   SectionStatus,
 } from '../../shared/types.js';
 import { fetchCurrentWarId, fetchWarAssignments } from './ahgsClient.js';
-import { fetchPersonalOrders } from './diveharderClient.js';
-import { mapAssignment, mapAssignmentList, pickMajorAssignment } from './orderMapper.js';
+import { mapAssignment, pickMajorAssignment } from './orderMapper.js';
 import { isUsablePrevious } from '../../shared/sectionState.js';
 import { mergeCache, readCache } from './cache.js';
 
@@ -82,27 +81,10 @@ export async function fetchMajorFromAhgs(previous: SectionCache | null): Promise
 export async function fetchPersonalFromDiveharder(
   previous: SectionCache | null,
 ): Promise<SectionCache> {
-  try {
-    console.info('[orders] upstream diveharder /v1/personal_order');
-    const assignments = await fetchPersonalOrders();
-    const mapped = mapAssignmentList(assignments);
-
-    if (mapped.length === 0) {
-      throw new Error('No personal objectives in diveharder payload');
-    }
-
-    return sectionFromSuccess('diveharder', mapped);
-  } catch (error) {
-    const message = errorMessage(error);
-    console.error('[orders] personal third-party fetch failed', message);
-    return sectionFromFailure(
-      'diveharder',
-      previous,
-      'unavailable',
-      [],
-      'Daily objectives unavailable — third-party API unreachable.',
-    );
-  }
+  const message =
+    'Third-party daily objectives require api.diveharder.com Devvit domain approval (not enabled in this app version).';
+  console.warn('[orders] diveharder domain not declared in devvit.json');
+  return sectionFromFailure('diveharder', previous, 'config_error', [], message);
 }
 
 export async function fetchPersonalFromAhgsOfficial(

@@ -26,7 +26,7 @@ export async function mergeCache(patch: Partial<CachedOrders>): Promise<CachedOr
     settings: {
       showMajorOrder: true,
       showPersonalObjectives: true,
-      personalUseThirdPartyApi: true,
+      personalUseThirdPartyApi: false,
     },
     major: null,
     personal: null,
