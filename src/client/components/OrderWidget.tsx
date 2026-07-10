@@ -224,6 +224,7 @@ export function OrderWidget({ payload }: { payload: OrdersApiResponse }) {
     payload.settings.showPersonalObjectives &&
     payload.personal &&
     (sectionHasDisplayData(payload.personal) || sectionErrorMessage(payload.personal));
+  const activeSectionCount = [hasMajor, hasPersonal].filter(Boolean).length;
 
   if (!hasMajor && !hasPersonal) {
     return (
@@ -240,8 +241,14 @@ export function OrderWidget({ payload }: { payload: OrdersApiResponse }) {
   return (
     <div className="hd2-post">
       <WidgetHeader />
-      <MajorOrderSection section={payload.major} />
-      <PersonalOrdersSection section={payload.personal} />
+      <div
+        className={
+          activeSectionCount < 2 ? 'hd2-post__body hd2-post__body--single' : 'hd2-post__body'
+        }
+      >
+        <MajorOrderSection section={payload.major} />
+        <PersonalOrdersSection section={payload.personal} />
+      </div>
       <Footer payload={payload} />
     </div>
   );

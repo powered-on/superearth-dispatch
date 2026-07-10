@@ -6,13 +6,18 @@
   box-sizing: border-box;
 }
 
+html,
 body {
   margin: 0;
   padding: 0;
+  min-height: 100%;
+  width: 100%;
   background: #0b0d10;
 }
 
 #root {
   margin: 0;
   padding: 0;
+  width: 100%;
+  min-height: 100%;
 }

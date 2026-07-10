@@ -17,6 +17,10 @@ A fan-made Reddit sidebar app for **Helldivers 2** subreddits. Visitors can see 
 
 ## Changelog
 
+### 0.0.12 — 2026-07-10
+
+- Post webview layout fills the feed pane (two-column Major/Personal on wide viewports)
+
 ### 0.0.11 — 2026-07-10
 
 - Fix sidebar migration: legacy textarea widgets are deleted before creating the custom widget
