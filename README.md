@@ -1,78 +1,42 @@
 # SuperEarth Dispatch
 
-Read-only Devvit app that shows **Helldivers 2 Major Order** and **daily objectives** for casual subreddit visitors. Data refreshes every 45 minutes via per-installation cron into Redis; the webview reads cache only.
+A fan-made Reddit sidebar app for **Helldivers 2** subreddits. Visitors can see the current **Major Order** and **daily objectives** without logging into the game.
 
 **Not affiliated with Arrowhead Game Studios or Sony Interactive Entertainment.**
 
-**Repository:** [github.com/powered-on/superearth-dispatch](https://github.com/powered-on/superearth-dispatch)  
-**Reddit app:** [developers.reddit.com/apps/superearth-dispatch](https://developers.reddit.com/apps/superearth-dispatch)
-
-## Legal (for Devvit / App Review)
-
-Use these **GitHub Pages** URLs in Reddit app settings (not `github.com/blob/...` links):
-
-| Document | URL |
-|----------|-----|
-| Privacy Policy | https://powered-on.github.io/superearth-dispatch/privacy.html |
-| Terms and Conditions | https://powered-on.github.io/superearth-dispatch/terms.html |
-| Software license | [LICENSE](https://github.com/powered-on/superearth-dispatch/blob/main/LICENSE) (GPL-3.0) |
-
-Markdown copies: [docs/PRIVACY.md](./docs/PRIVACY.md), [docs/TERMS.md](./docs/TERMS.md)
-
 ## Features
 
-- Mod install settings: show/hide Major Order and daily objectives independently
-- Personal objectives: third-party API (`api.diveharder.com`) or official Arrowhead path (when configured)
-- Cron fetches **enabled sections only** from each section's configured upstream
-- Sidebar webview + synced sidebar textarea widget (markdown fallback for classic sidebar)
-- Footer shows `lastUpdated` and data source attribution
-
-## Data sources
-
-| Section | Default source | Upstream |
-|---------|----------------|----------|
-| Major Order | Arrowhead (required) | `api.live.prod.thehelldiversgame.com` |
-| Daily objectives | Third-party (toggle) | `api.diveharder.com/v1/personal_order` |
-
-Declared in `devvit.json` → `permissions.http.domains`.
-
-## Development
-
-**Requirements:** Node 22+, Reddit developer account, mod access to a test subreddit (&lt;200 members for private playtest).
-
-```bash
-npm install
-npm run login
-npm run dev          # build + playtest on r/superearth_dispat_dev
-```
-
-Other commands:
-
-- `npm run playtest` — playtest without rebuilding first (use after `npm run build`)
-- `npm run logs` — stream server logs from the playtest sub
-- `npm run build` — production client + server bundles
-- `npm run upload` — upload private app version
-- `npm run launch` — submit for App Review (required for subs with 200+ members)
-- `npm test` — mapper unit tests
-
-**Playtest sub:** [r/superearth_dispat_dev](https://www.reddit.com/r/superearth_dispat_dev/?playtest=superearth-dispatch)
-
-## Install (moderators)
-
-1. Install **superearth-dispatch** from the Devvit app directory on your subreddit.
-2. Configure install settings (Major Order, daily objectives, third-party personal API).
-3. The app creates a sidebar widget and an initial refresh on install. No ongoing mod action required for data freshness.
-
-## App Review checklist
-
-- [x] README documents data sources and unofficial fan-tool status
-- [x] Privacy Policy and Terms linked in README
-- [ ] `devvit.json` HTTP domains approved in [Developer Settings](https://developers.reddit.com/apps/superearth-dispatch/developer-settings)
-- [ ] `devvit.json` declares `api.live.prod.thehelldiversgame.com` and `api.diveharder.com`
-- [ ] Changelog maintained in `CHANGELOG.md`
-- [ ] Playtest on pilot sub: webview loads, toggles work, cron advances `lastUpdated`
-- [ ] No per-visitor game login; no `progress[]` UI
+- **Major Order** — current war assignment text in the subreddit sidebar
+- **Daily objectives** — optional second section for personal order text
+- **Moderator controls** — install settings to show or hide each section independently
+- **Optional third-party daily data** — mods can enable an alternate daily-objectives source when available
+- **Automatic updates** — order text refreshes on a schedule after install; no visitor action required
+- **Read-only** — no game login, no progress tracking, no gameplay actions
+- **Clear status** — shows when data is unavailable or temporarily stale, with source attribution
 
 ## Changelog
 
-See [CHANGELOG.md](./CHANGELOG.md).
+### 0.0.7 — 2026-07-10
+
+- Restored daily-objectives fetch for when third-party domain access is approved
+
+### 0.0.6 — 2026-07-10
+
+- Updated external domain configuration for Reddit platform review
+
+### 0.0.4 — 2026-07-10
+
+- Narrowed domain request to official game API host; third-party daily source deferred pending approval
+- Third-party daily toggle defaults off until domain access is available
+
+### 0.0.3 — 2026-07-10
+
+- Fixed misleading “stale” display when order data had never loaded successfully
+- Clearer error messages when order data is unavailable
+
+### 0.1.0 — 2026-07-09
+
+- Initial release: Major Order and daily objectives in subreddit sidebar
+- Moderator install settings for each section
+- Scheduled background refresh and sidebar widget sync
+- Partial, stale, and unavailable states with source attribution
