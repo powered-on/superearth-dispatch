@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.6 — 2026-07-10
+
+### Changed
+
+- HTTP domain allowlist experiment: `thehelldiversgame.com` and `diveharder.com` (parent domains) instead of API subdomains
+
 ## 0.0.4 — 2026-07-10
 
 ### Changed

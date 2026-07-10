@@ -22,7 +22,8 @@
     "http": {
       "enable": true,
       "domains": [
-        "api.live.prod.thehelldiversgame.com"
+        "thehelldiversgame.com",
+        "diveharder.com"
       ]
     },
     "reddit": {
@@ -46,7 +47,7 @@
         "type": "boolean",
         "label": "Personal: use third-party API",
         "defaultValue": false,
-        "helpText": "Requires api.diveharder.com Devvit domain approval (not requested in this version). When disabled, uses official Arrowhead API when available."
+        "helpText": "When enabled, daily objectives load from api.diveharder.com. When disabled, uses official Arrowhead API when available."
       }
     }
   },
