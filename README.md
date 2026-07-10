@@ -17,6 +17,13 @@ A fan-made Reddit sidebar app for **Helldivers 2** subreddits. Visitors can see 
 
 ## Changelog
 
+### 0.0.10 — 2026-07-10
+
+- Sidebar widget upgraded from textarea to **custom widget** with HD2-styled scoped CSS
+- Faction-colored goal markup, static countdown text, and CSS progress hints in sidebar
+- Devvit post webview styled to Vision mock (HD2 panels, header, badges, callouts)
+- Post inline height set to `tall` for fuller order display
+
 ### 0.0.9 — 2026-07-10
 
 - Renamed user-facing **Daily Objectives** to **Personal Orders**

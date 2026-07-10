@@ -9,7 +9,7 @@
     "entrypoints": {
       "default": {
         "entry": "sidebar.html",
-        "height": "regular"
+        "height": "tall"
       }
     }
   },

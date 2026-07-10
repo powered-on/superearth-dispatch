@@ -1,7 +1,23 @@
 import { context, reddit, redis } from '@devvit/web/server';
+import type { OrderGoal } from '../../shared/orderGoals.js';
+import { goalDisplayLabel, goalProgressPercent } from '../../shared/orderGoals.js';
 import type { CachedOrders, NormalizedOrder, SectionCache } from '../../shared/types.js';
 import { WIDGET_ID_KEY, WIDGET_SHORT_NAME } from '../../shared/types.js';
 import { isUsableOrderData, sectionErrorMessage } from '../../shared/sectionState.js';
+import { computeWidgetHeight, SIDEBAR_WIDGET_CSS } from './sidebarWidgetCss.js';
+
+const WIDGET_STYLES = {
+  backgroundColor: '#0d0f11',
+  headerColor: '#ffb900',
+};
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+}
 
 function formatCountdownRemaining(expiresAt?: string): string {
   if (!expiresAt) {
@@ -19,39 +35,51 @@ function formatCountdownRemaining(expiresAt?: string): string {
   const minutes = Math.floor((remainingSeconds % 3_600) / 60);
 
   if (days > 0) {
-    return ` (${days}d ${hours}h left)`;
+    return `${days}d ${hours}h left`;
   }
 
   if (hours > 0) {
-    return ` (${hours}h ${minutes}m left)`;
+    return `${hours}h ${minutes}m left`;
   }
 
-  return ` (${minutes}m left)`;
+  return `${minutes}m left`;
 }
 
-function formatOrder(order: NormalizedOrder): string {
-  const lines = [`**${order.title}**${formatCountdownRemaining(order.expiresAt)}`, order.objective];
-  if (order.goals?.length) {
-    lines.push(
-      order.goals
-        .map((goal) => {
-          if (goal.progress?.kind === 'bar') {
-            const percent = Math.min(
-              100,
-              Math.round((goal.progress.current / goal.progress.goal) * 100),
-            );
-            return `- ${goal.text} (${percent}%)`;
-          }
+function goalToneClass(tone: OrderGoal['tone']): string {
+  return tone === 'default' ? 'sed-goal--default' : `sed-goal--${tone}`;
+}
 
-          if (goal.progress?.kind === 'box') {
-            return `- ${goal.text} ${goal.progress.complete ? '✓' : '○'}`;
-          }
+function formatGoalHtml(goal: OrderGoal): string {
+  const toneClass = goalToneClass(goal.tone);
 
-          return `- ${goal.text}`;
-        })
-        .join('\n'),
-    );
+  if (goal.progress?.kind === 'bar') {
+    const percent = goalProgressPercent(goal.progress);
+    return `<li class="sed-goal ${toneClass} sed-goal--bar">${escapeHtml(goal.text)} <span class="sed-pct" style="--sed-pct:${percent}%">${percent}%</span></li>`;
   }
+
+  if (goal.progress?.kind === 'box') {
+    const mark = goal.progress.complete ? '✓' : '○';
+    const doneClass = goal.progress.complete ? ' sed-goal--done' : '';
+    return `<li class="sed-goal ${toneClass}${doneClass}">${escapeHtml(goalDisplayLabel(goal))} <span class="sed-check">${mark}</span></li>`;
+  }
+
+  return `<li class="sed-goal ${toneClass}">${escapeHtml(goal.text)}</li>`;
+}
+
+function formatOrderHtml(order: NormalizedOrder): string {
+  const countdown = formatCountdownRemaining(order.expiresAt);
+  const countdownHtml = countdown
+    ? ` <em class="sed-countdown">${escapeHtml(countdown)}</em>`
+    : '';
+  const lines = [
+    `<p class="sed-order-title"><strong>${escapeHtml(order.title)}</strong>${countdownHtml}</p>`,
+    `<p class="sed-order-body">${escapeHtml(order.objective)}</p>`,
+  ];
+
+  if (order.goals?.length) {
+    lines.push(`<ul class="sed-goals">${order.goals.map(formatGoalHtml).join('')}</ul>`);
+  }
+
   return lines.join('\n\n');
 }
 
@@ -65,12 +93,12 @@ function renderSectionBlock(
 
   const staleNote =
     section.status === 'stale'
-      ? `\n\n*Stale — last fetched ${new Date(section.fetchedAt).toLocaleString()}*`
+      ? `<p class="sed-stale"><em>Stale — last fetched ${escapeHtml(new Date(section.fetchedAt).toLocaleString())}</em></p>`
       : '';
 
   if (section.status === 'standby') {
     const message = sectionErrorMessage(section) ?? 'Stand by for new orders.';
-    return [`### ${heading}`, `*${message}*`];
+    return [`### ${heading}`, `<p class="sed-standby"><em>${escapeHtml(message)}</em></p>`];
   }
 
   if (
@@ -78,18 +106,18 @@ function renderSectionBlock(
     isUsableOrderData(section.data)
   ) {
     if (Array.isArray(section.data)) {
-      const lines = section.data.map((order) => formatOrder(order));
+      const lines = section.data.map((order) => formatOrderHtml(order));
       return [`### ${heading}`, `${lines.join('\n\n')}${staleNote}`];
     }
 
-    return [`### ${heading}`, `${formatOrder(section.data)}${staleNote}`];
+    return [`### ${heading}`, `${formatOrderHtml(section.data)}${staleNote}`];
   }
 
   const message = sectionErrorMessage(section) ?? 'Unavailable';
-  return [`### ${heading}`, `*${message}*`];
+  return [`### ${heading}`, `<p class="sed-error"><em>${escapeHtml(message)}</em></p>`];
 }
 
-export function renderSidebarMarkdown(cache: CachedOrders): string {
+export function renderSidebarWidgetText(cache: CachedOrders): string {
   const blocks: string[] = [];
 
   if (cache.settings.showMajorOrder) {
@@ -101,12 +129,89 @@ export function renderSidebarMarkdown(cache: CachedOrders): string {
   }
 
   const footer = cache.lastUpdated
-    ? `\n\n---\n*Updated ${new Date(cache.lastUpdated).toLocaleString()}*`
+    ? `\n\n---\n<p class="sed-footer"><em>Updated ${escapeHtml(new Date(cache.lastUpdated).toLocaleString())}</em></p>`
     : '';
 
-  const attribution = `\n*Major: Arrowhead · Daily: ${cache.settings.personalUseThirdPartyApi ? 'Diveharder' : 'Arrowhead (when available)'}*`;
+  const attribution = `<p class="sed-footer"><em>Major: Arrowhead · Personal: ${escapeHtml(cache.settings.personalUseThirdPartyApi ? 'Diveharder' : 'Arrowhead (when available)')}</em></p>`;
 
   return `${blocks.join('\n\n')}${footer}${attribution}`;
+}
+
+/** @deprecated Use {@link renderSidebarWidgetText}. */
+export const renderSidebarMarkdown = renderSidebarWidgetText;
+
+type CustomWidgetPayload = {
+  type: 'custom';
+  subreddit: string;
+  shortName: string;
+  text: string;
+  css: string;
+  height: number;
+  imageData: [];
+  styles: typeof WIDGET_STYLES;
+};
+
+function buildCustomWidgetPayload(subredditName: string, text: string): CustomWidgetPayload {
+  return {
+    type: 'custom',
+    subreddit: subredditName,
+    shortName: WIDGET_SHORT_NAME,
+    text,
+    css: SIDEBAR_WIDGET_CSS,
+    height: computeWidgetHeight(text),
+    imageData: [],
+    styles: WIDGET_STYLES,
+  };
+}
+
+async function deleteWidgetQuietly(subredditName: string, widgetId: string): Promise<void> {
+  try {
+    await reddit.deleteWidget(subredditName, widgetId);
+  } catch (error) {
+    console.warn('[widget] delete failed (non-fatal)', error);
+  }
+}
+
+async function syncCustomWidget(subredditName: string, text: string): Promise<void> {
+  const basePayload = buildCustomWidgetPayload(subredditName, text);
+
+  const tryUpdate = async (widgetId: string): Promise<void> => {
+    await reddit.updateWidget({
+      ...basePayload,
+      id: widgetId,
+    });
+  };
+
+  const storedWidgetId = await redis.get(WIDGET_ID_KEY);
+  if (storedWidgetId) {
+    try {
+      await tryUpdate(storedWidgetId);
+      return;
+    } catch (error) {
+      console.warn('[widget] update by stored id failed, will recreate', error);
+      await deleteWidgetQuietly(subredditName, storedWidgetId);
+      await redis.del(WIDGET_ID_KEY);
+    }
+  }
+
+  const widgets = await reddit.getWidgets(subredditName);
+  const existing = widgets.find(
+    (widget) => widget.name.toLowerCase() === WIDGET_SHORT_NAME.toLowerCase(),
+  );
+
+  if (existing) {
+    try {
+      await tryUpdate(existing.id);
+      await redis.set(WIDGET_ID_KEY, existing.id);
+      return;
+    } catch (error) {
+      console.warn('[widget] update by name failed, will recreate', error);
+      await deleteWidgetQuietly(subredditName, existing.id);
+    }
+  }
+
+  const created = await reddit.addWidget(basePayload);
+  await redis.set(WIDGET_ID_KEY, created.id);
 }
 
 export async function syncSidebarWidget(cache: CachedOrders): Promise<void> {
@@ -115,58 +220,10 @@ export async function syncSidebarWidget(cache: CachedOrders): Promise<void> {
     return;
   }
 
-  const text = renderSidebarMarkdown(cache);
-  const styles = {
-    backgroundColor: '',
-    headerColor: '',
-  };
+  const text = renderSidebarWidgetText(cache);
 
   try {
-    const storedWidgetId = await redis.get(WIDGET_ID_KEY);
-
-    if (storedWidgetId) {
-      try {
-        await reddit.updateWidget({
-          type: 'textarea',
-          subreddit: subredditName,
-          id: storedWidgetId,
-          shortName: WIDGET_SHORT_NAME,
-          text,
-          styles,
-        });
-        return;
-      } catch (error) {
-        console.warn('[widget] update by stored id failed, will recreate', error);
-      }
-    }
-
-    const widgets = await reddit.getWidgets(subredditName);
-    const existing = widgets.find(
-      (widget) => widget.name.toLowerCase() === WIDGET_SHORT_NAME.toLowerCase(),
-    );
-
-    if (existing) {
-      await reddit.updateWidget({
-        type: 'textarea',
-        subreddit: subredditName,
-        id: existing.id,
-        shortName: WIDGET_SHORT_NAME,
-        text,
-        styles,
-      });
-      await redis.set(WIDGET_ID_KEY, existing.id);
-      return;
-    }
-
-    const created = await reddit.addWidget({
-      type: 'textarea',
-      subreddit: subredditName,
-      shortName: WIDGET_SHORT_NAME,
-      text,
-      styles,
-    });
-
-    await redis.set(WIDGET_ID_KEY, created.id);
+    await syncCustomWidget(subredditName, text);
   } catch (error) {
     console.error('[widget] sidebar sync failed (non-fatal)', error);
   }

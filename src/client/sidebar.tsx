@@ -1,4 +1,5 @@
 import './sidebar.css';
+import './hd2-post.css';
 
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -39,7 +40,7 @@ function App() {
 
   if (error) {
     return (
-      <div className="widget" role="alert">
+      <div className="hd2-post" role="alert">
         <p className="status-message">Unable to load order data: {error}</p>
       </div>
     );
@@ -47,7 +48,7 @@ function App() {
 
   if (!payload) {
     return (
-      <div className="widget" role="status" aria-live="polite">
+      <div className="hd2-post" role="status" aria-live="polite">
         <p className="status-message">Updating orders…</p>
       </div>
     );

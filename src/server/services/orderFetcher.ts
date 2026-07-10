@@ -108,7 +108,7 @@ export async function fetchPersonalFromDiveharder(
       previous,
       'unavailable',
       [],
-      'Daily objectives unavailable — third-party API unreachable.',
+      'Personal Orders unavailable — third-party API unreachable.',
     );
   }
 }
