@@ -1,0 +1,99 @@
+:root {
+  color-scheme: light dark;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.4;
+  color: #1a1a1b;
+  background: transparent;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
+#root {
+  padding: 12px;
+  max-width: 320px;
+}
+
+.widget {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.section h3 {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #576f76;
+}
+
+.title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.objective {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #1a1a1b;
+}
+
+.meta {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #576f76;
+}
+
+.status-message {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #576f76;
+}
+
+.footer {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  font-size: 0.7rem;
+  color: #576f76;
+}
+
+.footer p {
+  margin: 0 0 4px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color: #d7dadc;
+  }
+
+  .section h3,
+  .meta,
+  .status-message,
+  .footer {
+    color: #818384;
+  }
+
+  .objective {
+    color: #d7dadc;
+  }
+
+  .footer {
+    border-top-color: rgba(255, 255, 255, 0.12);
+  }
+}

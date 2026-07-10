@@ -1,0 +1,11 @@
+[
+  {
+    "expiresIn": 43200,
+    "setting": {
+      "overrideTitle": "DAILY ORDER",
+      "overrideBrief": "Complete patrols on designated worlds.",
+      "taskDescription": "Patrol 2 different planets in under 45 minutes."
+    },
+    "progress": [{ "value": 0 }]
+  }
+]

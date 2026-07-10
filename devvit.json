@@ -1,0 +1,80 @@
+{
+  "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
+  "name": "superearth-dispatch",
+  "post": {
+    "dir": "dist/client",
+    "entrypoints": {
+      "default": {
+        "entry": "sidebar.html",
+        "height": "regular"
+      }
+    }
+  },
+  "server": {
+    "dir": "dist/server",
+    "entry": "index.cjs"
+  },
+  "permissions": {
+    "redis": true,
+    "http": {
+      "enable": true,
+      "domains": [
+        "api.live.prod.thehelldiversgame.com",
+        "api.diveharder.com"
+      ]
+    },
+    "reddit": {
+      "enable": true,
+      "scope": "moderator"
+    }
+  },
+  "settings": {
+    "subreddit": {
+      "showMajorOrder": {
+        "type": "boolean",
+        "label": "Show Major Order",
+        "defaultValue": true
+      },
+      "showPersonalObjectives": {
+        "type": "boolean",
+        "label": "Show daily objectives",
+        "defaultValue": true
+      },
+      "personalUseThirdPartyApi": {
+        "type": "boolean",
+        "label": "Personal: use third-party API",
+        "defaultValue": true,
+        "helpText": "When enabled, daily objectives load from api.diveharder.com. When disabled, uses official Arrowhead API when available."
+      }
+    }
+  },
+  "scheduler": {
+    "tasks": {
+      "refreshOrders": {
+        "endpoint": "/internal/scheduler/refresh-orders",
+        "cron": "*/45 * * * *"
+      }
+    }
+  },
+  "triggers": {
+    "onAppInstall": "/internal/triggers/on-app-install"
+  },
+  "menu": {
+    "items": [
+      {
+        "label": "Refresh orders now",
+        "description": "Fetch latest Major Order and daily objectives into the sidebar cache.",
+        "location": "subreddit",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/refresh-orders"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch"
+  },
+  "dev": {
+    "subreddit": "superearth_dispat_dev"
+  }
+}

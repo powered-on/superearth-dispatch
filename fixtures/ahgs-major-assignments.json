@@ -1,0 +1,23 @@
+[
+  {
+    "id32": 1567721661,
+    "startTime": 75671400,
+    "progress": [149385022, 1, 1],
+    "expiresIn": 313720,
+    "setting": {
+      "type": 4,
+      "overrideTitle": "MAJOR ORDER: HOLD THE LINE",
+      "overrideBrief": "Kill the mandated number of Terminids and hold the designated planets in order to enable completion of the TCS+ wall's first construction phase.",
+      "taskDescription": "",
+      "tasks": [
+        {
+          "type": 3,
+          "values": [2, 0, 600000000, 0, 0, 0, 0, 0, 0, 0],
+          "valueTypes": [1, 2, 3, 4, 6, 5, 8, 9, 11, 12]
+        }
+      ],
+      "reward": { "type": 1, "id32": 897894480, "amount": 40 },
+      "flags": 1
+    }
+  }
+]
