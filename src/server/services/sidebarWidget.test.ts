@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { CachedOrders } from '../../shared/types.js';
 import { MAJOR_ORDER_STANDBY_MESSAGE } from '../../shared/types.js';
 import { computeWidgetHeight } from './sidebarWidgetCss.js';
-import { renderSidebarWidgetText } from './sidebarWidget.js';
+import { isCustomSidebarWidget, renderSidebarWidgetText } from './sidebarWidget.js';
 
 const baseCache: CachedOrders = {
   lastUpdated: '2026-07-10T16:15:00.000Z',
@@ -70,5 +70,27 @@ describe('computeWidgetHeight', () => {
   it('clamps height between 150 and 500', () => {
     expect(computeWidgetHeight('short')).toBeGreaterThanOrEqual(150);
     expect(computeWidgetHeight('x\n'.repeat(200) + 'sed-goal'.repeat(50))).toBeLessThanOrEqual(500);
+  });
+});
+
+describe('isCustomSidebarWidget', () => {
+  it('detects custom widgets by css and height', () => {
+    expect(
+      isCustomSidebarWidget({
+        id: 'w1',
+        name: 'SuperEarth Dispatch',
+        css: '.foo{}',
+        height: 200,
+      }),
+    ).toBe(true);
+  });
+
+  it('treats textarea widgets as legacy', () => {
+    expect(
+      isCustomSidebarWidget({
+        id: 'w2',
+        name: 'SuperEarth Dispatch',
+      }),
+    ).toBe(false);
   });
 });

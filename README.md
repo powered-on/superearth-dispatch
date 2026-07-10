@@ -17,6 +17,11 @@ A fan-made Reddit sidebar app for **Helldivers 2** subreddits. Visitors can see 
 
 ## Changelog
 
+### 0.0.11 — 2026-07-10
+
+- Fix sidebar migration: legacy textarea widgets are deleted before creating the custom widget
+- Add **Refresh orders now** on app posts (⋯ menu on Live Orders post)
+
 ### 0.0.10 — 2026-07-10
 
 - Sidebar widget upgraded from textarea to **custom widget** with HD2-styled scoped CSS

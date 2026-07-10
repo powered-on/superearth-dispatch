@@ -70,6 +70,14 @@
         "location": "subreddit",
         "forUserType": "moderator",
         "endpoint": "/internal/menu/refresh-orders"
+      },
+      {
+        "label": "Refresh orders now",
+        "description": "Fetch latest orders and update the sidebar widget.",
+        "location": "post",
+        "postFilter": "currentApp",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/refresh-orders"
       }
     ]
   },

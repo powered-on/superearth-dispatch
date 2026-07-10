@@ -2,7 +2,12 @@ import { context, reddit, redis } from '@devvit/web/server';
 import type { OrderGoal } from '../../shared/orderGoals.js';
 import { goalDisplayLabel, goalProgressPercent } from '../../shared/orderGoals.js';
 import type { CachedOrders, NormalizedOrder, SectionCache } from '../../shared/types.js';
-import { WIDGET_ID_KEY, WIDGET_SHORT_NAME } from '../../shared/types.js';
+import {
+  WIDGET_ID_KEY,
+  WIDGET_KIND_CUSTOM,
+  WIDGET_KIND_KEY,
+  WIDGET_SHORT_NAME,
+} from '../../shared/types.js';
 import { isUsableOrderData, sectionErrorMessage } from '../../shared/sectionState.js';
 import { computeWidgetHeight, SIDEBAR_WIDGET_CSS } from './sidebarWidgetCss.js';
 
@@ -140,6 +145,17 @@ export function renderSidebarWidgetText(cache: CachedOrders): string {
 /** @deprecated Use {@link renderSidebarWidgetText}. */
 export const renderSidebarMarkdown = renderSidebarWidgetText;
 
+type SidebarWidgetRecord = {
+  id: string;
+  name: string;
+  css?: string;
+  height?: number;
+};
+
+export function isCustomSidebarWidget(widget: SidebarWidgetRecord): boolean {
+  return typeof widget.css === 'string' && typeof widget.height === 'number';
+}
+
 type CustomWidgetPayload = {
   type: 'custom';
   subreddit: string;
@@ -174,44 +190,43 @@ async function deleteWidgetQuietly(subredditName: string, widgetId: string): Pro
 
 async function syncCustomWidget(subredditName: string, text: string): Promise<void> {
   const basePayload = buildCustomWidgetPayload(subredditName, text);
+  const widgets = await reddit.getWidgets(subredditName);
+  const matching = widgets.filter(
+    (widget) => widget.name.toLowerCase() === WIDGET_SHORT_NAME.toLowerCase(),
+  ) as SidebarWidgetRecord[];
 
-  const tryUpdate = async (widgetId: string): Promise<void> => {
-    await reddit.updateWidget({
-      ...basePayload,
-      id: widgetId,
-    });
-  };
+  const customWidgets = matching.filter(isCustomSidebarWidget);
+  const legacyWidgets = matching.filter((widget) => !isCustomSidebarWidget(widget));
 
-  const storedWidgetId = await redis.get(WIDGET_ID_KEY);
-  if (storedWidgetId) {
-    try {
-      await tryUpdate(storedWidgetId);
-      return;
-    } catch (error) {
-      console.warn('[widget] update by stored id failed, will recreate', error);
-      await deleteWidgetQuietly(subredditName, storedWidgetId);
-      await redis.del(WIDGET_ID_KEY);
-    }
+  for (const legacy of legacyWidgets) {
+    console.info('[widget] removing legacy textarea widget', legacy.id);
+    await deleteWidgetQuietly(subredditName, legacy.id);
   }
 
-  const widgets = await reddit.getWidgets(subredditName);
-  const existing = widgets.find(
-    (widget) => widget.name.toLowerCase() === WIDGET_SHORT_NAME.toLowerCase(),
-  );
+  const customTarget = customWidgets[0];
+  if (customTarget) {
+    for (const duplicate of customWidgets.slice(1)) {
+      console.info('[widget] removing duplicate custom widget', duplicate.id);
+      await deleteWidgetQuietly(subredditName, duplicate.id);
+    }
 
-  if (existing) {
     try {
-      await tryUpdate(existing.id);
-      await redis.set(WIDGET_ID_KEY, existing.id);
+      await reddit.updateWidget({
+        ...basePayload,
+        id: customTarget.id,
+      });
+      await redis.set(WIDGET_ID_KEY, customTarget.id);
+      await redis.set(WIDGET_KIND_KEY, WIDGET_KIND_CUSTOM);
       return;
     } catch (error) {
-      console.warn('[widget] update by name failed, will recreate', error);
-      await deleteWidgetQuietly(subredditName, existing.id);
+      console.warn('[widget] custom update failed, will recreate', error);
+      await deleteWidgetQuietly(subredditName, customTarget.id);
     }
   }
 
   const created = await reddit.addWidget(basePayload);
   await redis.set(WIDGET_ID_KEY, created.id);
+  await redis.set(WIDGET_KIND_KEY, WIDGET_KIND_CUSTOM);
 }
 
 export async function syncSidebarWidget(cache: CachedOrders): Promise<void> {
