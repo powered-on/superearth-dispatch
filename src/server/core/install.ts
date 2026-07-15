@@ -8,9 +8,7 @@ function personalAttribution(installSettings: InstallSettings): string {
     return 'Hidden';
   }
 
-  return installSettings.personalUseThirdPartyApi
-    ? 'Diveharder (third-party)'
-    : 'Arrowhead (official, when available)';
+  return 'Diveharder (external sync)';
 }
 
 export function buildOrdersResponse(

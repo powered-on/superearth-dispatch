@@ -55,7 +55,6 @@ export const WIDGET_SHORT_NAME = 'SuperEarth Dispatch';
 export const CACHE_KEY = 'orders:v1';
 export const WIDGET_ID_KEY = 'widget:id';
 export const WIDGET_KIND_KEY = 'widget:kind';
-export const WIDGET_KIND_CUSTOM = 'custom';
 export const WIDGET_KIND_TEXTAREA = 'textarea';
 export const WIDGET_LAST_SYNC_KEY = 'widget:lastSyncAt';
 export const SHOWCASE_POST_KEY = 'showcase:postId';

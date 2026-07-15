@@ -9,66 +9,43 @@ A fan-made Reddit sidebar app for **Helldivers 2** subreddits. Visitors can see 
 - **Major Order** — current war assignment text in the subreddit sidebar
 - **Personal Orders** — optional second section for personal order text (renamed from Daily Objectives)
 - **Moderator controls** — install settings to show or hide each section independently
-- **Optional third-party personal data** — mods can enable an alternate personal-orders source when available
 - **Automatic updates** — order text refreshes on a schedule after install; no visitor action required
 - **Read-only** — no game login and no gameplay actions
 - **Goal breakdown** — major order tasks show kill quotas and planet hold targets with faction-colored progress
 - **Clear status** — standby, stale, and unavailable states with source attribution
 
-## Why this app needs HTTP domain exceptions
+## S3 orders cache data path
 
-Reddit Devvit blocks outbound HTTP unless each **exact hostname** is declared in `devvit.json` and approved for the app. SuperEarth Dispatch cannot show live Major Order text without that permission — the assignment data lives on external game APIs, not on Reddit.
+Reddit denied Devvit HTTP for game APIs. SuperEarth Dispatch uses an **S3 cache**: GitHub Actions fetches public order data and writes JSON to a public S3 object; Devvit reads that URL through approved S3 hostnames only.
 
-This app is **read-only**. It does not log players into Helldivers 2, perform in-game actions, or collect visitor credentials. Moderators install it on a subreddit; visitors see cached order text in the sidebar widget or post webview.
+| Layer | Behavior |
+|-------|----------|
+| **External sync** | GHA (UTC `:00/:10/…`) fetches `api.helldivers2.dev` + `api.diveharder.com` → S3 `orders-cache.json` |
+| **Devvit server** | Cron (UTC `:05/:15/…`) + mod refresh `fetch` S3 cache only |
+| **Webview** | `/api/orders` (Redis cache) — no third-party URLs in the browser |
+| **Visitors** | Read-only; no game login; no Reddit user data sent to game APIs |
 
-### How network access is used
+**Operator setup:** `FA Dev Tooling/projects/superearth-dispatch/runbooks/s3-orders-cache-aws-setup.md` · `s3-orders-cache-gha-setup.md`
 
-| Concern | What we do |
-|--------|------------|
-| **Who calls external APIs** | Devvit **server** code only (scheduled cron + moderator “refresh” actions). Never the visitor’s browser. |
-| **What the webview calls** | This app’s own `/api/orders` endpoint, which reads Redis cache. No third-party URLs in client-side code. |
-| **What we send upstream** | Anonymous `GET` requests. Identification headers (`X-Super-Client`, `X-Super-Contact`) so the community API maintainer can reach us about abuse or breaking changes — no Reddit user data, no game accounts. |
-| **What we store** | Normalized order text and progress numbers in per-subreddit Redis between refreshes. |
-| **Refresh rate** | Default every 45 minutes per installation; only sections enabled in mod settings are fetched. |
-
-### Domains declared in `devvit.json`
-
-#### `api.helldivers2.dev` — **required for Major Order**
-
-**Why:** The sidebar’s primary feature is the current Major Order (title, briefing, task goals, expiry). That text must be fetched from a Helldivers 2 war API and cached server-side.
-
-**Why not Arrowhead directly:** We previously requested `api.live.prod.thehelldiversgame.com` and it was rejected. The [helldivers-2/api](https://github.com/helldivers-2/api) community project provides a `/raw/` passthrough of the same public assignment payloads and asks third-party apps to use it instead of hammering Arrowhead production servers. We use only their documented raw endpoints:
-
-- `GET /raw/api/WarSeason/current/WarID`
-- `GET /raw/api/v2/Assignment/War/{season}`
-
-**Implementation:** `src/server/services/ahgsClient.ts`
-
-**Data flow:** Public assignment JSON → mapped to display text → Redis → sidebar widget / post webview.
-
-#### Reddit S3 upload hosts — **custom sidebar widget images**
-
-**Why:** Reddit `custom` sidebar widgets require an `imageData` URL even when the widget is text/CSS-driven. The app uploads a minimal placeholder image via Reddit’s widget image API; responses are served from Reddit-owned S3 buckets.
-
-**Hosts (already approved):**
-
-- `reddit-uploaded-media.s3.amazonaws.com`
-- `reddit-uploaded-media.s3-accelerate.amazonaws.com`
-- `reddit-subreddit-uploaded-media.s3.amazonaws.com`
-- `reddit-subreddit-uploaded-media.s3-accelerate.amazonaws.com`
-
-**When used:** Custom-widget bootstrap and sync — not for order data.
-
-#### Not currently requested
-
-- **`api.diveharder.com`** — optional third-party Personal Orders source; install toggle defaults **off**. Will be requested in a separate review if mods need it.
-- **`random.org` / `www.random.org`** — listed for compatibility; globally allow-listed by Devvit and unused in the current build.
-
-### Privacy and terms
-
-External fetching is described in [docs/PRIVACY.md](docs/PRIVACY.md) and [docs/TERMS.md](docs/TERMS.md). **Reviewer-facing domain justification:** [powered-on.github.io/superearth-dispatch/domain-exceptions.html](https://powered-on.github.io/superearth-dispatch/domain-exceptions.html). App review notes: [REVIEW.md](REVIEW.md).
+**Reviewer doc:** [s3-cache-mode.html](docs/s3-cache-mode.html) · [REVIEW.md](REVIEW.md) · [PRIVACY.md](docs/PRIVACY.md)
 
 ## Changelog
+
+### Unreleased — S3 orders cache
+
+- S3 public JSON cache; Devvit HTTP enabled for `s3.amazonaws.com` only
+- GHA workflow `sync-orders-s3.yml` + `npm run orders:sync` (OIDC)
+- UTC offset cadence: publisher `:00/:10/…`, reader `:05/:15/…`
+
+### Unreleased — hub wiki mode (superseded)
+
+- Hub wiki path retired; see archived runbook `hub-wiki-github-actions.md`
+
+### 0.0.44 — 2026-07-10
+
+- **Textarea-only sidebar widget:** dropped custom widget create (Devvit proto gap) and PRAW bootstrap; install/re-add/sync always use textarea with HD2 Markdown styling
+- Removed Reddit S3 upload domains from `devvit.json` (no longer needed)
+- Legacy custom widgets removed on sync
 
 ### 0.0.37 — 2026-07-10
 
@@ -161,27 +138,15 @@ External fetching is described in [docs/PRIVACY.md](docs/PRIVACY.md) and [docs/T
 - Scheduled background refresh and sidebar widget sync
 - Partial, stale, and unavailable states with source attribution
 
-## Custom sidebar widget (HD2 styling)
+## Sidebar widget
 
-Devvit cannot reliably **create** Reddit `custom` sidebar widgets (platform `imageData` gap). Use a one-time PRAW bootstrap, then let the app **update** the widget on refresh and cron sync.
+The app uses a **textarea** sidebar widget (scalable on every install — no manual mod steps). Content is Markdown with HD2-themed styling:
 
-1. Create a [Reddit script app](https://www.reddit.com/prefs/apps) and note client id/secret.
-2. As a subreddit mod:
+- Dark header/background colors via widget `styles`
+- Unicode progress bars (`█` / `░`) for kill quotas
+- Faction emoji on goals (🟧 Terminid, 🟥 Automaton, etc.)
+- ⬛/🟩 hold boxes for planet objectives
 
-```bash
-pip install -r scripts/requirements.txt
-export REDDIT_CLIENT_ID=...
-export REDDIT_CLIENT_SECRET=...
-export REDDIT_USERNAME=...
-export REDDIT_PASSWORD=...
-export SED_SUBREDDIT=your_subreddit_name   # optional; default playtest sub
-python scripts/create-custom-widget.py
-```
+Install or **Re-add sidebar widget** creates/updates the widget automatically. Cron sync runs every 5 minutes.
 
-3. Upload/playtest the Devvit app and trigger **Force refresh** (or wait for cron).
-
-**Notes**
-
-- Do not delete the custom widget manually; **Re-add sidebar widget** updates an existing custom widget instead of replacing it with textarea.
-- Subreddits without the PRAW bootstrap continue to use the textarea fallback.
-- Re-add without a custom widget still creates textarea and points mods to the script above.
+**Custom widgets (scoped CSS)** are deferred until Reddit/Devvit fixes `WidgetImage.name` in the widgets proto. See `FA Dev Tooling/notes/Devvit troubleshooting.md`.

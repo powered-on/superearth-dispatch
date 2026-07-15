@@ -23,13 +23,8 @@
     "http": {
       "enable": true,
       "domains": [
-        "api.helldivers2.dev",
-        "random.org",
-        "www.random.org",
-        "reddit-uploaded-media.s3-accelerate.amazonaws.com",
-        "reddit-uploaded-media.s3.amazonaws.com",
-        "reddit-subreddit-uploaded-media.s3-accelerate.amazonaws.com",
-        "reddit-subreddit-uploaded-media.s3.amazonaws.com"
+        "s3.amazonaws.com",
+        "*.s3.amazonaws.com"
       ]
     },
     "reddit": {
@@ -51,9 +46,9 @@
       },
       "personalUseThirdPartyApi": {
         "type": "boolean",
-        "label": "Personal: use third-party API",
-        "defaultValue": false,
-        "helpText": "When enabled, Personal Orders load from api.diveharder.com. When disabled, uses official Arrowhead API when available."
+        "label": "Personal: use third-party API (deprecated)",
+        "defaultValue": true,
+        "helpText": "Deprecated. Personal Orders always come from the shared orders cache (synced by GitHub Actions)."
       },
       "showForceRefreshButton": {
         "type": "boolean",
@@ -73,7 +68,7 @@
     "tasks": {
       "refreshOrders": {
         "endpoint": "/internal/scheduler/refresh-orders",
-        "cron": "*/45 * * * *"
+        "cron": "5,15,25,35,45,55 * * * *"
       },
       "syncWidget": {
         "endpoint": "/internal/scheduler/sync-widget",
@@ -88,14 +83,14 @@
     "items": [
       {
         "label": "Refresh orders now",
-        "description": "Fetch latest Major Order and Personal Orders into the sidebar cache.",
+        "description": "Read latest orders from the shared S3 cache into this subreddit.",
         "location": "subreddit",
         "forUserType": "moderator",
         "endpoint": "/internal/menu/refresh-orders"
       },
       {
         "label": "Refresh orders now",
-        "description": "Fetch latest orders and update the sidebar widget.",
+        "description": "Read orders cache and update the sidebar widget.",
         "location": "post",
         "postFilter": "currentApp",
         "forUserType": "moderator",
@@ -103,14 +98,14 @@
       },
       {
         "label": "Force refresh",
-        "description": "Fetch latest orders and update the sidebar widget immediately.",
+        "description": "Read orders cache and update the sidebar widget immediately.",
         "location": "subreddit",
         "forUserType": "moderator",
         "endpoint": "/internal/menu/force-refresh-orders"
       },
       {
         "label": "Force refresh",
-        "description": "Fetch latest orders and update the sidebar widget immediately.",
+        "description": "Read orders cache and update the sidebar widget immediately.",
         "location": "post",
         "postFilter": "currentApp",
         "forUserType": "moderator",

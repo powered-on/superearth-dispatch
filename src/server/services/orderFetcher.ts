@@ -1,32 +1,13 @@
-import type {
-  InstallSettings,
-  SectionCache,
-  SectionStatus,
-} from '../../shared/types.js';
-import { fetchCurrentWarId, fetchWarAssignments } from './ahgsClient.js';
-import { fetchPersonalOrders } from './diveharderClient.js';
-import { majorSectionFromAssignments } from './majorSection.js';
-import { mapAssignmentList } from './orderMapper.js';
+import type { InstallSettings, SectionCache, SectionStatus } from '../../shared/types.js';
 import { isUsablePrevious } from '../../shared/sectionState.js';
 import { mergeCache, readCache } from './cache.js';
+import { readOrdersCachePayload } from './ordersCacheReader.js';
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
   }
   return 'Unknown error';
-}
-
-function sectionFromSuccess<T>(
-  source: SectionCache['source'],
-  data: T,
-): SectionCache {
-  return {
-    status: 'ok',
-    fetchedAt: new Date().toISOString(),
-    source,
-    data: data as SectionCache['data'],
-  };
 }
 
 function sectionFromFailure(
@@ -55,102 +36,130 @@ function sectionFromFailure(
   };
 }
 
-export async function fetchMajorFromAhgs(previous: SectionCache | null): Promise<SectionCache> {
-  try {
-    console.info('[orders] upstream api.helldivers2.dev WarID');
-    const warId = await fetchCurrentWarId();
-    console.info(`[orders] upstream api.helldivers2.dev Assignment/War/${warId}`);
-    const assignments = await fetchWarAssignments(warId);
-    const section = majorSectionFromAssignments(assignments);
-
-    if (!section) {
-      throw new Error('Failed to build major section from HD2 API payload');
-    }
-
-    if (section.status === 'standby') {
-      console.info('[orders] major order standby — no active assignment');
-      return section;
-    }
-
-    if (!Array.isArray(section.data)) {
-      console.info(`[orders] major mapped: ${section.data.title}`);
-    }
-
-    return section;
-  } catch (error) {
-    const message = errorMessage(error);
-    console.error('[orders] major fetch failed', message);
-    return sectionFromFailure('arrowhead', previous, 'unavailable', {
-      title: '',
-      objective: '',
-    }, message);
-  }
-}
-
-export async function fetchPersonalFromDiveharder(
+function sectionForInstall(
+  enabled: boolean,
+  remoteSection: SectionCache | null,
   previous: SectionCache | null,
-): Promise<SectionCache> {
-  try {
-    console.info('[orders] upstream diveharder /v1/personal_order');
-    const assignments = await fetchPersonalOrders();
-    const mapped = mapAssignmentList(assignments);
+  source: SectionCache['source'],
+  emptyData: SectionCache['data'],
+  unavailableMessage: string,
+): SectionCache | null {
+  if (!enabled) {
+    return null;
+  }
 
-    if (mapped.length === 0) {
-      throw new Error('No personal objectives in diveharder payload');
-    }
+  if (remoteSection && remoteSection.status !== 'unavailable') {
+    return remoteSection;
+  }
 
-    return sectionFromSuccess('diveharder', mapped);
-  } catch (error) {
-    const message = errorMessage(error);
-    console.error('[orders] personal third-party fetch failed', message);
+  if (remoteSection?.status === 'unavailable') {
     return sectionFromFailure(
-      'diveharder',
+      remoteSection.source ?? source,
       previous,
       'unavailable',
-      [],
-      'Personal Orders unavailable — third-party API unreachable.',
+      emptyData,
+      remoteSection.errorMessage ?? unavailableMessage,
     );
   }
+
+  return sectionFromFailure(source, previous, 'unavailable', emptyData, unavailableMessage);
 }
 
-export async function fetchPersonalFromAhgsOfficial(
-  previous: SectionCache | null,
-): Promise<SectionCache> {
-  const message =
-    'Official Arrowhead personal route not configured. Enable third-party API in install settings.';
-  console.warn('[orders] official AHGS personal route not configured (SYN-A-014)');
-  return sectionFromFailure('arrowhead', previous, 'config_error', [], message);
+function isRemoteNewer(remoteLastUpdated: string, localLastUpdated: string | undefined): boolean {
+  if (!localLastUpdated) {
+    return true;
+  }
+  return remoteLastUpdated > localLastUpdated;
 }
 
 export async function refreshOrders(settings: InstallSettings): Promise<void> {
   const existing = await readCache();
-  const patch: {
-    lastUpdated: string;
-    settings: InstallSettings;
-    major?: SectionCache | null;
-    personal?: SectionCache | null;
-  } = {
-    lastUpdated: new Date().toISOString(),
-    settings,
-  };
 
-  if (settings.showMajorOrder) {
-    patch.major = await fetchMajorFromAhgs(existing?.major ?? null);
-  } else {
-    console.info('[orders] major section disabled — no major-order upstream calls');
-    patch.major = null;
-  }
+  try {
+    const remote = await readOrdersCachePayload();
 
-  if (settings.showPersonalObjectives) {
-    if (settings.personalUseThirdPartyApi) {
-      patch.personal = await fetchPersonalFromDiveharder(existing?.personal ?? null);
-    } else {
-      patch.personal = await fetchPersonalFromAhgsOfficial(existing?.personal ?? null);
+    if (existing && !isRemoteNewer(remote.lastUpdated, existing.lastUpdated)) {
+      console.info('[orders] orders cache unchanged — skip merge');
+      return;
     }
-  } else {
-    console.info('[orders] personal section disabled — no personal upstream calls');
-    patch.personal = null;
-  }
 
-  await mergeCache(patch);
+    const patch: {
+      lastUpdated: string;
+      settings: InstallSettings;
+      major?: SectionCache | null;
+      personal?: SectionCache | null;
+    } = {
+      lastUpdated: remote.lastUpdated,
+      settings,
+    };
+
+    if (settings.showMajorOrder) {
+      patch.major = sectionForInstall(
+        true,
+        remote.major,
+        existing?.major ?? null,
+        'arrowhead',
+        { title: '', objective: '' },
+        'Major Order unavailable — orders cache missing or invalid.',
+      );
+    } else {
+      console.info('[orders] major section disabled — skipping remote major section');
+      patch.major = null;
+    }
+
+    if (settings.showPersonalObjectives) {
+      patch.personal = sectionForInstall(
+        true,
+        remote.personal,
+        existing?.personal ?? null,
+        'diveharder',
+        [],
+        'Personal Orders unavailable — orders cache missing or invalid.',
+      );
+    } else {
+      console.info('[orders] personal section disabled — skipping remote personal section');
+      patch.personal = null;
+    }
+
+    await mergeCache(patch);
+  } catch (error) {
+    const message = errorMessage(error);
+    console.error('[orders] orders cache read failed', message);
+
+    const patch: {
+      lastUpdated: string;
+      settings: InstallSettings;
+      major?: SectionCache | null;
+      personal?: SectionCache | null;
+    } = {
+      lastUpdated: new Date().toISOString(),
+      settings,
+    };
+
+    if (settings.showMajorOrder) {
+      patch.major = sectionFromFailure(
+        'arrowhead',
+        existing?.major ?? null,
+        'unavailable',
+        { title: '', objective: '' },
+        message,
+      );
+    } else {
+      patch.major = null;
+    }
+
+    if (settings.showPersonalObjectives) {
+      patch.personal = sectionFromFailure(
+        'diveharder',
+        existing?.personal ?? null,
+        'unavailable',
+        [],
+        message,
+      );
+    } else {
+      patch.personal = null;
+    }
+
+    await mergeCache(patch);
+  }
 }

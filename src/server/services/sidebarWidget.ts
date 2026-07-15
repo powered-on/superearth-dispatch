@@ -11,13 +11,11 @@ import type { CachedOrders, NormalizedOrder, SectionCache } from '../../shared/t
 import {
   WIDGET_ID_KEY,
   WIDGET_KIND_KEY,
-  WIDGET_KIND_CUSTOM,
   WIDGET_KIND_TEXTAREA,
   WIDGET_SHORT_NAME,
 } from '../../shared/types.js';
 import { isUsableOrderData, sectionErrorMessage } from '../../shared/sectionState.js';
 import { recordWidgetSync } from './widgetSyncSchedule.js';
-import { SIDEBAR_WIDGET_CSS, computeWidgetHeight } from './sidebarWidgetCss.js';
 
 const WIDGET_STYLES = {
   backgroundColor: '#0d0f11',
@@ -41,6 +39,63 @@ export function hasExpectedWidgetStyles(
 
 function sectionHeadingMarkdown(heading: string): string {
   return `**${heading}**`;
+}
+
+function sectionHeadingWithCountdown(heading: string, expiresAt?: string): string {
+  const countdown = formatCountdownRemaining(expiresAt);
+  return countdown ? `**${heading}** (${countdown})` : sectionHeadingMarkdown(heading);
+}
+
+const MAJOR_ORDER_TITLE_PREFIX = /^major order:\s*/i;
+
+export function displayMajorOrderName(title: string): string {
+  const trimmed = title.replace(MAJOR_ORDER_TITLE_PREFIX, '').trim();
+  return trimmed || title.trim();
+}
+
+const MD_HARD_BREAK = '  ';
+
+function mdHardBreakLine(line: string): string {
+  return `${line}${MD_HARD_BREAK}`;
+}
+
+function formatMajorOrderNameLine(order: NormalizedOrder): string {
+  return `**${displayMajorOrderName(order.title)}**`;
+}
+
+function formatMajorOrderBlock(heading: string, order: NormalizedOrder): string {
+  const goalLines = (order.goals ?? []).map((goal) => formatGoalMarkdown(goal, 'major'));
+
+  return [
+    mdHardBreakLine(sectionHeadingWithCountdown(heading, order.expiresAt)),
+    mdHardBreakLine(formatMajorOrderNameLine(order)),
+    '',
+    order.objective,
+    '',
+    ...goalLines,
+  ].join('\n');
+}
+
+function formatPersonalOrderBlock(heading: string, order: NormalizedOrder): string {
+  const lines = [
+    mdHardBreakLine(sectionHeadingWithCountdown(heading, order.expiresAt)),
+    mdHardBreakLine(order.objective),
+    ...(order.goals ?? []).map((goal) => formatGoalMarkdown(goal, 'personal')),
+  ];
+
+  return lines.join('\n');
+}
+
+function renderTextareaFooter(cache: CachedOrders): string {
+  if (!cache.lastUpdated) {
+    return '';
+  }
+
+  const personalSource = cache.personal?.source === 'diveharder'
+    ? 'Diveharder (external sync)'
+    : 'Orders cache';
+
+  return `\n---\n${mdHardBreakLine(`*Updated ${new Date(cache.lastUpdated).toLocaleString()}*`)}\n*Major: Arrowhead (external sync)*|*Personal: ${personalSource}*`;
 }
 
 function escapeHtml(value: string): string {
@@ -132,7 +187,7 @@ function formatOrderHtml(order: NormalizedOrder): string {
   return lines.join('\n\n');
 }
 
-/** Block-char progress bar for textarea widgets (approximates custom-widget CSS bars). */
+/** Block-char progress bar for textarea widgets. */
 const TEXTAREA_PROGRESS_BAR_WIDTH = 10;
 
 export function formatTextareaProgressBar(percent: number): string {
@@ -144,88 +199,83 @@ export function formatTextareaProgressBar(percent: number): string {
   return `${'█'.repeat(filled)}${'░'.repeat(TEXTAREA_PROGRESS_BAR_WIDTH - filled)} ${clamped}%`;
 }
 
-function formatGoalMarkdown(goal: OrderGoal): string {
+function formatGoalMarkdown(goal: OrderGoal, layout: 'major' | 'personal'): string {
   const marker = goalToneEmoji(goal.tone);
+  const indent = layout === 'major' ? ' ' : '';
 
   if (goal.progress?.kind === 'bar') {
     const percent = goalProgressPercent(goal.progress);
     const bar = formatTextareaProgressBar(percent);
-    return `> ${marker} **${goal.text}**  \n> ${bar}`;
+    return `${mdHardBreakLine(`${indent}${marker} **${goal.text}**`)}\n${mdHardBreakLine(`${indent}${bar}`)}`;
   }
 
   if (goal.progress?.kind === 'box') {
     const label = goalDisplayLabel(goal);
     const box = goal.progress.complete ? GOAL_BOX_COMPLETE_EMOJI : GOAL_BOX_PENDING_EMOJI;
-    return `> ${box} **${label}**`;
+    return mdHardBreakLine(`${indent}${box} **${label}**`);
   }
 
-  return `> ${marker} **${goal.text}**`;
+  return mdHardBreakLine(`${indent}${marker} **${goal.text}**`);
 }
 
-function formatOrderMarkdown(order: NormalizedOrder): string {
-  const countdown = formatCountdownRemaining(order.expiresAt);
-  const countdownSuffix = countdown ? ` (${countdown})` : '';
-  const parts = [`**${order.title}**${countdownSuffix}`, order.objective];
-
-  if (order.goals?.length) {
-    parts.push(...order.goals.map(formatGoalMarkdown));
-  }
-
-  return parts.join('\n\n');
-}
+type SidebarSectionKind = 'major' | 'personal';
 
 function renderSectionBlockMarkdown(
   heading: string,
   section: SectionCache | null,
-): string[] {
+  kind: SidebarSectionKind,
+): string {
   if (!section) {
-    return [];
+    return '';
   }
 
   const staleNote =
     section.status === 'stale'
-      ? `> **⚠** *Stale — last fetched ${new Date(section.fetchedAt).toLocaleString()}*`
+      ? mdHardBreakLine(`**⚠** *Stale — last fetched ${new Date(section.fetchedAt).toLocaleString()}*`)
       : '';
 
   if (section.status === 'standby') {
     const message = sectionErrorMessage(section) ?? 'Stand by for new orders.';
-    return [sectionHeadingMarkdown(heading), `*${message}*`];
+    return `${sectionHeadingMarkdown(heading)}\n*${message}*`;
   }
 
   if (
     (section.status === 'ok' || section.status === 'stale') &&
     isUsableOrderData(section.data)
   ) {
-    if (Array.isArray(section.data)) {
-      const lines = section.data.map((order) => formatOrderMarkdown(order));
-      return [sectionHeadingMarkdown(heading), `${lines.join('\n\n')}${staleNote ? `\n\n${staleNote}` : ''}`];
-    }
+    const body = Array.isArray(section.data)
+      ? kind === 'major'
+        ? section.data.map((order) => formatMajorOrderBlock(heading, order)).join('\n\n')
+        : section.data.map((order) => formatPersonalOrderBlock(heading, order)).join('\n\n')
+      : kind === 'major'
+        ? formatMajorOrderBlock(heading, section.data)
+        : formatPersonalOrderBlock(heading, section.data);
 
-    return [sectionHeadingMarkdown(heading), `${formatOrderMarkdown(section.data)}${staleNote ? `\n\n${staleNote}` : ''}`];
+    return `${body}${staleNote ? `\n${staleNote}` : ''}`;
   }
 
   const message = sectionErrorMessage(section) ?? 'Unavailable';
-  return [sectionHeadingMarkdown(heading), `> **⚠** *${message}*`];
+  return `${sectionHeadingMarkdown(heading)}\n${mdHardBreakLine(`**⚠** *${message}*`)}`;
 }
 
 export function renderSidebarWidgetMarkdownPlain(cache: CachedOrders): string {
   const blocks: string[] = [];
 
   if (cache.settings.showMajorOrder) {
-    blocks.push(...renderSectionBlockMarkdown('Major Order', cache.major));
+    const major = renderSectionBlockMarkdown('Major Order', cache.major, 'major');
+    if (major) {
+      blocks.push(major);
+    }
   }
 
   if (cache.settings.showPersonalObjectives) {
-    blocks.push(...renderSectionBlockMarkdown('Personal Orders', cache.personal));
+    const personal = renderSectionBlockMarkdown('Personal Orders', cache.personal, 'personal');
+    if (personal) {
+      blocks.push(personal);
+    }
   }
 
-  const footer = cache.lastUpdated
-    ? `\n\n---\n*Updated ${new Date(cache.lastUpdated).toLocaleString()}*`
-    : '';
-
-  const attribution = `\n*Major: Arrowhead · Personal: ${cache.settings.personalUseThirdPartyApi ? 'Diveharder' : 'Arrowhead (when available)'}*`;
-
-  return `${blocks.join('\n\n')}${footer}${attribution}`;
+  return `${blocks.join('\n\n')}${renderTextareaFooter(cache)}`;
 }
 
 function renderSectionBlock(
@@ -262,6 +312,7 @@ function renderSectionBlock(
   return [`### ${heading}`, `<p class="sed-error"><em>${escapeHtml(message)}</em></p>`];
 }
 
+/** @deprecated Custom widgets are unsupported; HTML renderer kept for tests. */
 export function renderSidebarWidgetText(cache: CachedOrders): string {
   const blocks: string[] = [];
 
@@ -277,7 +328,10 @@ export function renderSidebarWidgetText(cache: CachedOrders): string {
     ? `\n\n---\n<p class="sed-footer"><em>Updated ${escapeHtml(new Date(cache.lastUpdated).toLocaleString())}</em></p>`
     : '';
 
-  const attribution = `<p class="sed-footer"><em>Major: Arrowhead · Personal: ${escapeHtml(cache.settings.personalUseThirdPartyApi ? 'Diveharder' : 'Arrowhead (when available)')}</em></p>`;
+  const personalLabel = cache.personal?.source === 'diveharder'
+    ? 'Diveharder (external sync)'
+    : 'Orders cache';
+  const attribution = `<p class="sed-footer"><em>Major: Arrowhead (external sync) · Personal: ${escapeHtml(personalLabel)}</em></p>`;
 
   return `${blocks.join('\n\n')}${footer}${attribution}`;
 }
@@ -308,35 +362,16 @@ type TextareaWidgetPayload = {
   styles: typeof WIDGET_STYLES;
 };
 
-type CustomWidgetUpdatePayload = {
-  type: 'custom';
-  subreddit: string;
-  id: string;
-  shortName: string;
-  text: string;
-  css: string;
-  height: number;
-  styles: typeof WIDGET_STYLES;
-};
-
 export type SidebarWidgetCreateResult = {
   widgetId: string;
-  kind: typeof WIDGET_KIND_CUSTOM | typeof WIDGET_KIND_TEXTAREA;
+  kind: typeof WIDGET_KIND_TEXTAREA;
   message: string;
 };
 
-export type SidebarWidgetSyncPlan =
-  | {
-      mode: typeof WIDGET_KIND_CUSTOM;
-      targetId: string;
-      duplicateIds: string[];
-      legacyTextareaIds: string[];
-    }
-  | {
-      mode: typeof WIDGET_KIND_TEXTAREA;
-      targetId?: string;
-      duplicateIds: string[];
-    };
+export type SidebarWidgetSyncPlan = {
+  targetId?: string;
+  duplicateIds: string[];
+};
 
 function buildTextareaWidgetPayload(subredditName: string, text: string): TextareaWidgetPayload {
   return {
@@ -348,45 +383,13 @@ function buildTextareaWidgetPayload(subredditName: string, text: string): Textar
   };
 }
 
-export function buildCustomWidgetUpdatePayload(
-  subredditName: string,
-  text: string,
-  widgetId: string,
-): CustomWidgetUpdatePayload {
-  return {
-    type: 'custom',
-    subreddit: subredditName,
-    id: widgetId,
-    shortName: WIDGET_SHORT_NAME,
-    text,
-    css: SIDEBAR_WIDGET_CSS,
-    height: computeWidgetHeight(text),
-    styles: WIDGET_STYLES,
-  };
-}
-
 export function planSidebarWidgetSync(matching: SidebarWidgetRecord[]): SidebarWidgetSyncPlan {
-  const customWidgets = matching.filter(isCustomSidebarWidget);
   const textareaWidgets = matching.filter((widget) => !isCustomSidebarWidget(widget));
-
-  if (customWidgets.length > 0) {
-    const [customTarget, ...customDuplicates] = customWidgets;
-    if (!customTarget) {
-      throw new Error('Expected at least one custom sidebar widget');
-    }
-
-    return {
-      mode: WIDGET_KIND_CUSTOM,
-      targetId: customTarget.id,
-      duplicateIds: customDuplicates.map((widget) => widget.id),
-      legacyTextareaIds: textareaWidgets.map((widget) => widget.id),
-    };
-  }
+  const legacyCustomIds = matching.filter(isCustomSidebarWidget).map((widget) => widget.id);
 
   return {
-    mode: WIDGET_KIND_TEXTAREA,
     targetId: textareaWidgets[0]?.id,
-    duplicateIds: textareaWidgets.slice(1).map((widget) => widget.id),
+    duplicateIds: [...textareaWidgets.slice(1).map((widget) => widget.id), ...legacyCustomIds],
   };
 }
 
@@ -439,29 +442,15 @@ async function removeWidgetsById(subredditName: string, widgetIds: string[], rea
   }
 }
 
-async function updateCustomSidebarWidget(
-  subredditName: string,
-  cache: CachedOrders,
-  widgetId: string,
-): Promise<void> {
-  const htmlText = renderSidebarWidgetText(cache);
-  await reddit.updateWidget({
-    ...buildCustomWidgetUpdatePayload(subredditName, htmlText, widgetId),
-    imageData: [],
-  });
-  await redis.set(WIDGET_ID_KEY, widgetId);
-  await redis.set(WIDGET_KIND_KEY, WIDGET_KIND_CUSTOM);
-}
-
 async function syncTextareaSidebarWidget(
   subredditName: string,
   cache: CachedOrders,
-  plan: Extract<SidebarWidgetSyncPlan, { mode: typeof WIDGET_KIND_TEXTAREA }>,
+  plan: SidebarWidgetSyncPlan,
   targetWidget?: SidebarWidgetRecord,
 ): Promise<void> {
   const plainText = renderSidebarWidgetMarkdownPlain(cache);
 
-  await removeWidgetsById(subredditName, plan.duplicateIds, 'duplicate textarea widget');
+  await removeWidgetsById(subredditName, plan.duplicateIds, 'duplicate or legacy custom widget');
 
   const needsStyleRecreate =
     plan.targetId &&
@@ -498,43 +487,16 @@ async function syncSidebarWidgetState(subredditName: string, cache: CachedOrders
   ) as SidebarWidgetRecord[];
 
   const plan = planSidebarWidgetSync(matching);
-
-  if (plan.mode === WIDGET_KIND_CUSTOM) {
-    await removeWidgetsById(subredditName, plan.duplicateIds, 'duplicate custom widget');
-    await removeWidgetsById(subredditName, plan.legacyTextareaIds, 'legacy textarea widget');
-
-    try {
-      await updateCustomSidebarWidget(subredditName, cache, plan.targetId);
-      return;
-    } catch (error) {
-      console.error('[widget] custom update failed; preserving PRAW-created widget', error);
-      throw error;
-    }
-  }
-
-  await syncTextareaSidebarWidget(subredditName, cache, plan, matching.find((widget) => widget.id === plan.targetId));
+  await syncTextareaSidebarWidget(
+    subredditName,
+    cache,
+    plan,
+    matching.find((widget) => widget.id === plan.targetId),
+  );
 }
 
 export async function readdSidebarWidget(cache: CachedOrders): Promise<SidebarWidgetCreateResult> {
   const subredditName = await resolveSubredditName();
-  const widgets = await reddit.getWidgets(subredditName);
-  const matching = widgets.filter(
-    (widget) => widget.name.toLowerCase() === WIDGET_SHORT_NAME.toLowerCase(),
-  ) as SidebarWidgetRecord[];
-  const plan = planSidebarWidgetSync(matching);
-
-  if (plan.mode === WIDGET_KIND_CUSTOM) {
-    await removeWidgetsById(subredditName, plan.duplicateIds, 'duplicate custom widget');
-    await removeWidgetsById(subredditName, plan.legacyTextareaIds, 'legacy textarea widget');
-
-    await updateCustomSidebarWidget(subredditName, cache, plan.targetId);
-
-    return {
-      widgetId: plan.targetId,
-      kind: WIDGET_KIND_CUSTOM,
-      message: 'SuperEarth Dispatch custom sidebar widget updated.',
-    };
-  }
 
   await removeAllNamedWidgets(subredditName);
   await redis.del(WIDGET_ID_KEY, WIDGET_KIND_KEY);
@@ -546,8 +508,7 @@ export async function readdSidebarWidget(cache: CachedOrders): Promise<SidebarWi
   return {
     widgetId,
     kind: WIDGET_KIND_TEXTAREA,
-    message:
-      'SuperEarth Dispatch sidebar widget re-added (textarea with HD2-style markdown). Run scripts/create-custom-widget.py for full CSS styling when available.',
+    message: 'SuperEarth Dispatch sidebar widget re-added.',
   };
 }
 
