@@ -1,6 +1,6 @@
 # Privacy Policy — SuperEarth Dispatch
 
-**Last updated:** July 10, 2026
+**Last updated:** July 15, 2026
 
 SuperEarth Dispatch (“the App”) is a fan-made [Reddit Devvit](https://developers.reddit.com/) application that displays public Helldivers 2 war information in a subreddit sidebar. This policy describes what data the App handles.
 
@@ -25,14 +25,24 @@ Installing and using the App on a subreddit is subject to [Reddit’s Privacy Po
 
 ## Server-side data fetching
 
-When enabled by subreddit moderators, the App’s server periodically fetches **public** game status from external APIs:
+### Devvit app (per subreddit installation)
 
-| Purpose | Host |
-|---------|------|
-| Major Order | `api.helldivers2.dev` (community API; Arrowhead assignment data via `/raw/`) |
-| Daily objectives (optional) | `api.diveharder.com` (third-party, if enabled in install settings) |
+The App’s Devvit server does **not** make outbound HTTP requests to external game APIs. It performs an anonymous `GET` of a single public JSON object on developer-operated Amazon S3 (`orders-cache.json`), parses public order text, and caches it in Devvit Redis for the sidebar widget and webview.
 
-These requests are made by the App server on a schedule (approximately every 45 minutes). **No per-visitor identity or Reddit user data is sent to these APIs** as part of normal operation.
+### External sync job (developer-operated)
+
+Public game data shown by the App is kept current by a **scheduled job outside Devvit** (GitHub Actions in the [open-source repository](https://github.com/powered-on/superearth-dispatch)). That job:
+
+| Purpose | Host | Called from |
+|---------|------|-------------|
+| Major Order | `api.helldivers2.dev` | GitHub Actions (not Devvit) |
+| Personal Orders | `api.diveharder.com` | GitHub Actions (not Devvit) |
+
+The job uses anonymous `GET` requests and community API identification headers (`X-Super-Client`, `X-Super-Contact`). It does not receive Reddit user IDs or other personal information from the App or from Reddit viewers.
+
+The job writes normalized order JSON to S3 using a scoped IAM role (OIDC from GitHub Actions). The object is publicly readable. Default publish cadence is every **10 minutes UTC** (`:00, :10, :20, …`).
+
+**No per-visitor identity or Reddit user data is sent to game APIs** as part of normal operation.
 
 ## Data stored by the App
 

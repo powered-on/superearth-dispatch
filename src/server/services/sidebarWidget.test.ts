@@ -3,7 +3,7 @@ import type { CachedOrders } from '../../shared/types.js';
 import { MAJOR_ORDER_STANDBY_MESSAGE } from '../../shared/types.js';
 import { computeWidgetHeight } from './sidebarWidgetCss.js';
 import {
-  buildCustomWidgetUpdatePayload,
+  displayMajorOrderName,
   formatTextareaProgressBar,
   hasExpectedWidgetStyles,
   isCustomSidebarWidget,
@@ -11,7 +11,7 @@ import {
   renderSidebarWidgetMarkdownPlain,
   renderSidebarWidgetText,
 } from './sidebarWidget.js';
-import { WIDGET_KIND_CUSTOM, WIDGET_KIND_TEXTAREA, WIDGET_SHORT_NAME } from '../../shared/types.js';
+import { WIDGET_SHORT_NAME } from '../../shared/types.js';
 
 const baseCache: CachedOrders = {
   lastUpdated: '2026-07-10T16:15:00.000Z',
@@ -59,7 +59,7 @@ describe('renderSidebarWidgetText', () => {
     expect(text).toContain('sed-goal--box');
     expect(text).toContain('sed-box--complete');
     expect(text).toContain('sed-countdown');
-    expect(text).toContain('Major: Arrowhead · Personal: Diveharder');
+    expect(text).toContain('Major: Arrowhead (external sync) · Personal: Orders cache');
   });
 
   it('renders standby message with styling class', () => {
@@ -82,15 +82,20 @@ describe('renderSidebarWidgetMarkdownPlain', () => {
   it('renders markdown goals with blockquote panels and progress bars', () => {
     const text = renderSidebarWidgetMarkdownPlain(baseCache);
 
-    expect(text).toContain('**Major Order**');
-    expect(text).toContain('**MAJOR ORDER: HOLD THE LINE**');
-    expect(text).toContain('> 🟧 **Kill 600,000,000 Terminids**');
-    expect(text).toMatch(/█+░+ 25%/);
-    expect(text).toContain('> 🟩 **TERREK**');
-    expect(text).not.toContain('> 🟨 TERREK');
+    expect(text).toMatch(/\*\*Major Order\*\* \((\d+d \d+h|\d+h \d+m) left\)  /);
+    expect(text).toContain('**HOLD THE LINE**  ');
+    expect(text).not.toMatch(/\*\*HOLD THE LINE\*\* \(/);
+    expect(text).not.toContain('**MAJOR ORDER: HOLD THE LINE**');
+    expect(text).not.toContain('DAILY ORDER');
+    expect(text).toContain(' 🟧 **Kill 600,000,000 Terminids**  ');
+    expect(text).toMatch(/ ███░░░░░░░ 25%  /);
+    expect(text).toContain(' 🟩 **TERREK**  ');
+    expect(text).not.toContain('> 🟧');
     expect(text).not.toContain('### Major Order');
     expect(text).not.toContain('<li class="sed-goal');
     expect(text).not.toContain('☑');
+    expect(text).toContain('*Major: Arrowhead (external sync)*|*Personal: Orders cache*');
+    expect(text).not.toContain('*Major: Arrowhead*\n*Personal');
   });
 
   it('renders unavailable sections as blockquote callouts', () => {
@@ -105,7 +110,45 @@ describe('renderSidebarWidgetMarkdownPlain', () => {
       },
     });
 
-    expect(text).toContain('> **⚠** *Personal Orders unavailable');
+    expect(text).toContain('**⚠** *Personal Orders unavailable');
+    expect(text).not.toContain('> **⚠**');
+  });
+});
+
+describe('displayMajorOrderName', () => {
+  it('strips the MAJOR ORDER prefix from API titles', () => {
+    expect(displayMajorOrderName('MAJOR ORDER: HOLD THE LINE')).toBe('HOLD THE LINE');
+    expect(displayMajorOrderName('HOLD THE LINE')).toBe('HOLD THE LINE');
+  });
+});
+
+describe('renderSidebarWidgetMarkdownPlain personal heading', () => {
+  it('puts countdown on Personal Orders heading without a daily order title', () => {
+    const text = renderSidebarWidgetMarkdownPlain({
+      ...baseCache,
+      major: null,
+      personal: {
+        status: 'ok',
+        fetchedAt: '2026-07-10T16:15:00.000Z',
+        source: 'diveharder',
+        data: {
+          title: 'DAILY ORDER',
+          objective: 'Complete patrols on designated worlds.',
+          expiresAt: new Date(Date.now() + 43_200_000).toISOString(),
+          goals: [
+            {
+              text: 'Patrol 2 different planets in under 45 minutes.',
+              tone: 'brand',
+            },
+          ],
+        },
+      },
+    });
+
+    expect(text).toMatch(/\*\*Personal Orders\*\* \(\d+h \d+m left\)  /);
+    expect(text).not.toContain('**DAILY ORDER**');
+    expect(text).toContain('Complete patrols on designated worlds.  ');
+    expect(text).toContain('🟨 **Patrol 2 different planets in under 45 minutes.**');
   });
 });
 
@@ -163,7 +206,7 @@ describe('isCustomSidebarWidget', () => {
 });
 
 describe('planSidebarWidgetSync', () => {
-  it('prefers custom widgets over textarea widgets', () => {
+  it('removes legacy custom widgets and keeps one textarea target', () => {
     const plan = planSidebarWidgetSync([
       { id: 'textarea-1', name: WIDGET_SHORT_NAME },
       { id: 'custom-1', name: WIDGET_SHORT_NAME, css: '.sed{}', height: 220 },
@@ -171,36 +214,31 @@ describe('planSidebarWidgetSync', () => {
     ]);
 
     expect(plan).toEqual({
-      mode: WIDGET_KIND_CUSTOM,
-      targetId: 'custom-1',
-      duplicateIds: ['custom-2'],
-      legacyTextareaIds: ['textarea-1'],
+      targetId: 'textarea-1',
+      duplicateIds: ['custom-1', 'custom-2'],
     });
   });
 
-  it('falls back to textarea when no custom widget exists', () => {
+  it('schedules duplicate textarea widgets for removal', () => {
     const plan = planSidebarWidgetSync([
       { id: 'textarea-1', name: WIDGET_SHORT_NAME },
       { id: 'textarea-2', name: WIDGET_SHORT_NAME },
     ]);
 
     expect(plan).toEqual({
-      mode: WIDGET_KIND_TEXTAREA,
       targetId: 'textarea-1',
       duplicateIds: ['textarea-2'],
     });
   });
-});
 
-describe('buildCustomWidgetUpdatePayload', () => {
-  it('includes scoped CSS and computed height without imageData', () => {
-    const text = renderSidebarWidgetText(baseCache);
-    const payload = buildCustomWidgetUpdatePayload('superearth_dispat_dev', text, 'widget-123');
+  it('creates fresh textarea when only legacy custom widgets exist', () => {
+    const plan = planSidebarWidgetSync([
+      { id: 'custom-1', name: WIDGET_SHORT_NAME, css: '.sed{}', height: 220 },
+    ]);
 
-    expect(payload.type).toBe('custom');
-    expect(payload.id).toBe('widget-123');
-    expect(payload.css).toContain('.sed-goal');
-    expect(payload.height).toBe(computeWidgetHeight(text));
-    expect('imageData' in payload).toBe(false);
+    expect(plan).toEqual({
+      targetId: undefined,
+      duplicateIds: ['custom-1'],
+    });
   });
 });

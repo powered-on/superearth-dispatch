@@ -1,0 +1,49 @@
+name: Sync orders to S3
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0,10,20,30,40,50 * * * *'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Download existing cache object if present
+        continue-on-error: true
+        run: aws s3 cp "s3://${AWS_S3_BUCKET}/orders-cache.json" existing-orders-cache.json
+
+      - name: Build orders cache JSON
+        run: npm run orders:sync -- --output orders-cache.json --existing-file existing-orders-cache.json
+
+      - name: Upload orders cache to S3
+        run: |
+          if [ ! -f orders-cache.json ]; then
+            echo "unchanged — skip upload"
+            exit 0
+          fi
+          aws s3 cp orders-cache.json "s3://${AWS_S3_BUCKET}/orders-cache.json" \
+            --content-type application/json \
+            --cache-control "public, max-age=600"
+          echo "[orders-sync] updated s3://${AWS_S3_BUCKET}/orders-cache.json"

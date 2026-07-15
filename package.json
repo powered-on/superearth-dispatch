@@ -14,7 +14,8 @@
     "login": "npx devvit login",
     "logs": "npx devvit logs superearth_dispat_dev",
     "test": "vitest run",
-    "type-check": "tsc --build"
+    "type-check": "tsc --build",
+    "orders:sync": "tsx scripts/orders-sync/sync.ts"
   },
   "engines": {
     "node": ">=22.2.0"
@@ -33,6 +34,7 @@
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.3",
+    "tsx": "^4.20.3",
     "typescript": "5.8.3",
     "vite": "8.1.3",
     "vitest": "4.1.0"

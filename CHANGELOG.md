@@ -1,41 +1,18 @@
 # Changelog
 
-## 0.0.37 — 2026-07-10
+## Unreleased — S3 orders cache
 
 ### Changed
 
-- Major Order fetch via community API `api.helldivers2.dev` (`/raw/` passthrough) instead of direct Arrowhead host
-- HTTP domain allowlist: `api.helldivers2.dev` only for order data; retained approved Reddit S3 upload domains for custom widget work
+- **S3 cache path:** Devvit reads public `orders-cache.json` from FA-controlled S3 via approved `s3.amazonaws.com` hosts; no game API calls from Devvit
+- `permissions.http` enabled for `s3.amazonaws.com` and `*.s3.amazonaws.com` only
+- GitHub Actions workflow `.github/workflows/sync-orders-s3.yml` + `npm run orders:sync` (OIDC upload, no Reddit OAuth)
+- UTC cadence: GHA publish `:00/:10/…`; Devvit `refreshOrders` `:05/:15/…`; `syncWidget` every 5 minutes
+- Operator runbooks: `FA Dev Tooling/projects/superearth-dispatch/runbooks/s3-orders-cache-aws-setup.md`, `s3-orders-cache-gha-setup.md`
+- Hub wiki path archived; `hub-wiki-github-actions.md` retained for rollback reference only
 
-## 0.0.6 — 2026-07-10
-
-### Changed
-
-- HTTP domain allowlist experiment: `thehelldiversgame.com` and `diveharder.com` (parent domains) instead of API subdomains
-
-## 0.0.4 — 2026-07-10
+## Unreleased — hub wiki mode (superseded)
 
 ### Changed
 
-- HTTP domain request narrowed to official AHGS host only (`api.live.prod.thehelldiversgame.com`); diveharder removed from `devvit.json` pending separate approval
-- Third-party personal API toggle defaults off; clear message when domain not declared
-
-## 0.0.3 — 2026-07-10
-
-### Fixed
-
-- Stale state no longer reuses failed “Unavailable” placeholder text as if it were live order data
-- AHGS client: browser-like headers, robust WarID parsing, clearer upstream error messages in UI
-- Unavailable sections show fetch error detail instead of fake major-order copy
-
-## 0.1.0 — 2026-07-09
-
-### Added
-
-- Devvit Web app with sidebar webview (`sidebar.html`) and `/api/orders` cache reader
-- Per-installation cron refresh (45 min) with settings-aware fetch discipline
-- Major Order from official AHGS (`WarID` → `Assignment/War/{season}`)
-- Personal objectives from diveharder third-party API (official AHGS personal path stubbed pending Arrowhead Q1)
-- Install settings: `showMajorOrder`, `showPersonalObjectives`, `personalUseThirdPartyApi`
-- Sidebar textarea widget sync on install and cron
-- Partial/stale/unavailable section states and source attribution footer
+- Hub wiki only: Devvit read via `getWikiPage`; replaced by S3 cache path above

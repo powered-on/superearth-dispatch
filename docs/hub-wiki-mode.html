@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hub Wiki Data Path — SuperEarth Dispatch</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 46rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+    h1, h2 { line-height: 1.2; }
+    table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+    th, td { border: 1px solid #ccc; padding: 0.5rem; text-align: left; vertical-align: top; }
+    th { background: #f6f6f6; }
+    code { font-size: 0.92em; }
+    a { color: #0a5; }
+    .note { background: #f8f8f8; border-left: 3px solid #888; padding: 0.75rem 1rem; margin: 1rem 0; }
+  </style>
+</head>
+<body>
+  <h1>Hub Wiki Data Path — SuperEarth Dispatch</h1>
+  <p><strong>App:</strong> <a href="https://developers.reddit.com/apps/superearth-dispatch">superearth-dispatch</a> · <strong>Last updated:</strong> July 14, 2026</p>
+
+  <div class="note">
+    <strong>Superseded:</strong> Production uses <a href="s3-cache-mode.html">S3 cache mode</a>. This page describes the retired hub-wiki path.
+  </div>
+
+  <p><strong>Not affiliated with Arrowhead Game Studios, Sony Interactive Entertainment, or Reddit, Inc.</strong></p>
+
+  <div class="note">
+    <strong>Supersedes:</strong> <a href="domain-exceptions.html">domain-exceptions.html</a> (Devvit outbound HTTP model). This build does not fetch game APIs from Devvit.
+  </div>
+
+  <h2>Why this mode exists</h2>
+  <p>Devvit blocks outbound HTTP unless each hostname is declared in <code>devvit.json</code> and approved. When game API domains are denied, the app cannot fetch live order text from inside Devvit. Hub wiki mode keeps the same user-facing behavior by separating ingestion (external scheduled job) from display (Devvit reading Reddit-hosted wiki content).</p>
+
+  <h2>Architecture</h2>
+  <table>
+    <thead><tr><th>Layer</th><th>What happens</th></tr></thead>
+    <tbody>
+      <tr><td>External sync</td><td>GitHub Actions (~45 min) fetches public data from <code>api.helldivers2.dev</code> and <code>api.diveharder.com</code>, writes JSON to <code>r/superearth_dispat_dev/wiki/superearth-dispatch/orders-cache</code> via OAuth <code>wikiedit</code>.</td></tr>
+      <tr><td>Devvit server</td><td>Cron and mod refresh call <code>getWikiPage</code> on the hub page only. No external HTTP.</td></tr>
+      <tr><td>Devvit client</td><td>Webview calls <code>/api/orders</code> (Redis). No third-party URLs.</td></tr>
+      <tr><td>Storage</td><td>Per-subreddit Redis cache on each install; hub wiki is the shared source of truth.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Transparency</h2>
+  <ul>
+    <li>The external sync workflow is defined in the public repository (<code>.github/workflows/sync-hub-wiki.yml</code>).</li>
+    <li>The hub wiki page is publicly readable; write access is limited to moderators on the hub subreddit.</li>
+    <li>No Reddit user data is embedded in the wiki payload or sent to game APIs.</li>
+  </ul>
+
+  <h2>Permissions requested (hub mode)</h2>
+  <table>
+    <thead><tr><th>Permission</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td><code>redis</code></td><td>Per-installation cache between refreshes</td></tr>
+      <tr><td><code>reddit</code> (moderator)</td><td>Sidebar widget, showcase post, <code>getWikiPage</code> on hub sub</td></tr>
+      <tr><td><code>http</code></td><td><strong>Disabled</strong> — no outbound HTTP for order data</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Source</h2>
+  <p><a href="https://github.com/powered-on/superearth-dispatch">github.com/powered-on/superearth-dispatch</a></p>
+</body>
+</html>

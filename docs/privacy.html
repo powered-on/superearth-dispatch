@@ -14,7 +14,7 @@
 </head>
 <body>
   <h1>Privacy Policy — SuperEarth Dispatch</h1>
-  <p><strong>Last updated:</strong> July 10, 2026</p>
+  <p><strong>Last updated:</strong> July 15, 2026</p>
 
   <p>SuperEarth Dispatch (“the App”) is a fan-made <a href="https://developers.reddit.com/">Reddit Devvit</a> application that displays public Helldivers 2 war information in a subreddit sidebar. This policy describes what data the App handles.</p>
 
@@ -36,18 +36,25 @@
   <p>Installing and using the App on a subreddit is subject to <a href="https://www.reddit.com/policies/privacy-policy">Reddit’s Privacy Policy</a> and <a href="https://www.reddit.com/policies/user-agreement">Reddit’s User Agreement</a>. Reddit processes moderator account data, subreddit context, and platform telemetry according to its own policies.</p>
 
   <h2>Server-side data fetching</h2>
-  <p>When enabled by subreddit moderators, the App’s server periodically fetches <strong>public</strong> game status from external APIs:</p>
+
+  <h3>Devvit app (per subreddit installation)</h3>
+  <p>The App’s Devvit server does <strong>not</strong> make outbound HTTP requests to external game APIs. It performs an anonymous <code>GET</code> of a single public JSON object on developer-operated Amazon S3 (<code>orders-cache.json</code>), parses public order text, and caches it in Devvit Redis for the sidebar widget and webview.</p>
+
+  <h3>External sync job (developer-operated)</h3>
+  <p>Public game data shown by the App is kept current by a <strong>scheduled job outside Devvit</strong> (GitHub Actions in the <a href="https://github.com/powered-on/superearth-dispatch">open-source repository</a>). That job:</p>
   <table>
     <thead>
-      <tr><th>Purpose</th><th>Host</th></tr>
+      <tr><th>Purpose</th><th>Host</th><th>Called from</th></tr>
     </thead>
     <tbody>
-      <tr><td>Major Order</td><td>api.helldivers2.dev (community API; Arrowhead data via /raw/)</td></tr>
-      <tr><td>Daily objectives (optional)</td><td>api.diveharder.com (third-party, if enabled)</td></tr>
+      <tr><td>Major Order</td><td>api.helldivers2.dev</td><td>GitHub Actions (not Devvit)</td></tr>
+      <tr><td>Personal Orders</td><td>api.diveharder.com</td><td>GitHub Actions (not Devvit)</td></tr>
     </tbody>
   </table>
-  <p>These requests are made by the App server on a schedule (approximately every 45 minutes). <strong>No per-visitor identity or Reddit user data is sent to these APIs</strong> as part of normal operation.</p>
-  <p>See <a href="domain-exceptions.html">HTTP domain exceptions (app review)</a> for full justification of each allow-listed hostname.</p>
+  <p>The job uses anonymous <code>GET</code> requests and community API identification headers (<code>X-Super-Client</code>, <code>X-Super-Contact</code>). It does not receive Reddit user IDs or other personal information from the App or from Reddit viewers.</p>
+  <p>The job writes normalized order JSON to S3 using a scoped IAM role (OIDC from GitHub Actions). The object is publicly readable. Default publish cadence is every <strong>10 minutes UTC</strong> (<code>:00, :10, :20, …</code>).</p>
+  <p><strong>No per-visitor identity or Reddit user data is sent to game APIs</strong> as part of normal operation.</p>
+  <p>See <a href="s3-cache-mode.html">S3 cache data path (app review)</a> for architecture detail.</p>
 
   <h2>Data stored by the App</h2>
   <p>The App caches normalized order text (titles, objectives, expiry metadata) in Devvit Redis scoped to each subreddit installation. Cached content is derived from public upstream APIs, not from individual Reddit users.</p>
